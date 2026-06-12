@@ -12,37 +12,57 @@
 .swiftpm/
 migrate_working_dir/
 
-# IntelliJ related
+# IDE / editor
 *.iml
 *.ipr
 *.iws
 .idea/
+.vscode/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
 **/doc/api/
 **/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
+/.flutter-plugins
+/.flutter-plugins-dependencies
+/.packages
 /build/
 /coverage/
+
+# Generated CocoaPods and Xcode artifacts
+ios/Pods/
+ios/Flutter/Flutter.framework/
+ios/Flutter/FlutterPluginRegistrant.framework/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Flutter/Flutter.podspec
+ios/Runner.xcodeproj/xcshareddata/WorkspaceSettings.xcsettings
+
+# Android build artifacts
+android/.gradle/
+android/app/build/
+android/app/.cxx/
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# Windows build artifacts
+windows/flutter/generated_plugin_registrant.*
+windows/flutter/generated_plugins.cmake
+windows/runner/GeneratedPluginRegistrant.*
+
+# Generated files
+**/generated/
 
 # Symbolication related
 app.*.symbols
 
 # Obfuscation related
 app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
 
 # Environment variables / API keys
 .env
