@@ -29,8 +29,7 @@ Future<void> main() async {
     );
     FirebaseAuth.instance.setLanguageCode('en');
   } catch (e) {
-    print('Firebase initialization error: $e');
-    rethrow;
+    debugPrint('Firebase initialization warning: $e');
   }
 
   runApp(const MedInfoApp());

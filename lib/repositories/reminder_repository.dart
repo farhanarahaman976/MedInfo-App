@@ -1,54 +1,65 @@
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/medicine_reminder.dart';
 import '../services/notification_service.dart';
 
 class ReminderRepository {
-  static const String _key = 'medicine_reminders';
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // ── Load all reminders ──────────────────────────────────────────────────────
-
-  Future<List<MedicineReminder>> loadReminders() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonStr = prefs.getString(_key);
-    if (jsonStr == null) return [];
-
-    final List<dynamic> jsonList = jsonDecode(jsonStr);
-    return jsonList
-        .map((e) => MedicineReminder.fromJson(e as Map<String, dynamic>))
-        .toList()
-      ..sort((a, b) {
-        final aMinutes = a.time.hour * 60 + a.time.minute;
-        final bMinutes = b.time.hour * 60 + b.time.minute;
-        return aMinutes.compareTo(bMinutes);
-      });
+  // Current user er reminders subcollection reference
+  CollectionReference<Map<String, dynamic>>? get _ref {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return null;
+    return _firestore.collection('users').doc(uid).collection('reminders');
   }
 
-  // ── Save all reminders ──────────────────────────────────────────────────────
+  // ── Stream: real-time list (Controller e use korbe) ────────────────────────
 
-  Future<void> _saveAll(List<MedicineReminder> reminders) async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonStr =
-        jsonEncode(reminders.map((r) => r.toJson()).toList());
-    await prefs.setString(_key, jsonStr);
+  Stream<List<MedicineReminder>> remindersStream() {
+    final ref = _ref;
+    if (ref == null) return const Stream.empty();
+
+    return ref
+        .orderBy('timeHour')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => MedicineReminder.fromFirestore(doc.data(), doc.id))
+            .toList());
+  }
+
+  // ── Load all reminders (one-time fetch) ────────────────────────────────────
+
+  Future<List<MedicineReminder>> loadReminders() async {
+    final ref = _ref;
+    if (ref == null) return [];
+
+    final snapshot = await ref.orderBy('timeHour').get();
+    return snapshot.docs
+        .map((doc) => MedicineReminder.fromFirestore(doc.data(), doc.id))
+        .toList();
   }
 
   // ── Add reminder ────────────────────────────────────────────────────────────
 
   Future<void> addReminder(MedicineReminder reminder) async {
-    final reminders = await loadReminders();
-    reminders.add(reminder);
-    await _saveAll(reminders);
+    final ref = _ref;
+    if (ref == null) return;
 
-    // Schedule notification
+    // Firestore e save (id auto-generate hobe)
+    final docRef = await ref.add(reminder.toFirestore());
+
+    // Notification schedule — Firestore generated id use korbe
     if (reminder.isActive) {
+      final saved = reminder.copyWith(id: docRef.id);
       await NotificationService().scheduleDosageReminder(
-        id: reminder.notificationId,
-        medicineName: reminder.medicineName,
-        dosage: reminder.dosage,
-        time: reminder.time,
-        repeatType: reminder.repeatType,
-        weekDays: reminder.weekDays.isEmpty ? null : reminder.weekDays,
+        id: saved.notificationId,
+        medicineName: saved.medicineName,
+        dosage: saved.dosage,
+        time: saved.time,
+        repeatType: saved.repeatType,
+        weekDays: saved.weekDays.isEmpty ? null : saved.weekDays,
+        medicineId: saved.medicineName,
       );
     }
   }
@@ -56,15 +67,14 @@ class ReminderRepository {
   // ── Update reminder ─────────────────────────────────────────────────────────
 
   Future<void> updateReminder(MedicineReminder updated) async {
-    final reminders = await loadReminders();
-    final index = reminders.indexWhere((r) => r.id == updated.id);
-    if (index == -1) return;
+    final ref = _ref;
+    if (ref == null) return;
 
-    // Cancel old notification
-    await NotificationService().cancelReminder(reminders[index].notificationId);
+    // Old notification cancel
+    await NotificationService().cancelReminder(updated.notificationId);
 
-    reminders[index] = updated;
-    await _saveAll(reminders);
+    // Firestore update
+    await ref.doc(updated.id).update(updated.toFirestore());
 
     // Re-schedule if active
     if (updated.isActive) {
@@ -75,6 +85,7 @@ class ReminderRepository {
         time: updated.time,
         repeatType: updated.repeatType,
         weekDays: updated.weekDays.isEmpty ? null : updated.weekDays,
+        medicineId: updated.medicineName,
       );
     }
   }
@@ -82,38 +93,45 @@ class ReminderRepository {
   // ── Toggle active ───────────────────────────────────────────────────────────
 
   Future<void> toggleReminder(String id, bool isActive) async {
-    final reminders = await loadReminders();
-    final index = reminders.indexWhere((r) => r.id == id);
-    if (index == -1) return;
+    final ref = _ref;
+    if (ref == null) return;
 
-    final reminder = reminders[index];
-    final updated = reminder.copyWith(isActive: isActive);
-    reminders[index] = updated;
-    await _saveAll(reminders);
+    await ref.doc(id).update({'isActive': isActive});
+
+    // Notification handle
+    final snapshot = await ref.doc(id).get();
+    if (!snapshot.exists) return;
+
+    final reminder = MedicineReminder.fromFirestore(snapshot.data()!, id);
 
     if (isActive) {
       await NotificationService().scheduleDosageReminder(
-        id: updated.notificationId,
-        medicineName: updated.medicineName,
-        dosage: updated.dosage,
-        time: updated.time,
-        repeatType: updated.repeatType,
-        weekDays: updated.weekDays.isEmpty ? null : updated.weekDays,
+        id: reminder.notificationId,
+        medicineName: reminder.medicineName,
+        dosage: reminder.dosage,
+        time: reminder.time,
+        repeatType: reminder.repeatType,
+        weekDays: reminder.weekDays.isEmpty ? null : reminder.weekDays,
+        medicineId: reminder.medicineName,
       );
     } else {
-      await NotificationService().cancelReminder(updated.notificationId);
+      await NotificationService().cancelReminder(reminder.notificationId);
     }
   }
 
   // ── Delete reminder ─────────────────────────────────────────────────────────
 
   Future<void> deleteReminder(String id) async {
-    final reminders = await loadReminders();
-    final reminder = reminders.firstWhere((r) => r.id == id);
+    final ref = _ref;
+    if (ref == null) return;
 
-    await NotificationService().cancelReminder(reminder.notificationId);
+    // Notification cancel korar age data fetch koro
+    final snapshot = await ref.doc(id).get();
+    if (snapshot.exists) {
+      final reminder = MedicineReminder.fromFirestore(snapshot.data()!, id);
+      await NotificationService().cancelReminder(reminder.notificationId);
+    }
 
-    reminders.removeWhere((r) => r.id == id);
-    await _saveAll(reminders);
+    await ref.doc(id).delete();
   }
 }

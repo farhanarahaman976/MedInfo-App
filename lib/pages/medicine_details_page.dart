@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import '../models/medicine.dart';
 import '../services/language_service.dart';
 
 class MedicineDetailsPage extends StatefulWidget {
   final Medicine medicine;
+  final void Function(Medicine)? onAddToCart;
+  final bool Function(Medicine)? isInCart;
 
-  const MedicineDetailsPage({super.key, required this.medicine});
+  const MedicineDetailsPage({
+    super.key,
+    required this.medicine,
+    this.onAddToCart,
+    this.isInCart,
+  });
 
   @override
   State<MedicineDetailsPage> createState() => _MedicineDetailsPageState();
@@ -41,7 +49,7 @@ class _MedicineDetailsPageState extends State<MedicineDetailsPage> {
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                       ),
                       child: Row(
                         children: [
@@ -134,7 +142,7 @@ class _MedicineDetailsPageState extends State<MedicineDetailsPage> {
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.15),
+                            color: Colors.white.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -161,7 +169,7 @@ class _MedicineDetailsPageState extends State<MedicineDetailsPage> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -197,7 +205,9 @@ class _MedicineDetailsPageState extends State<MedicineDetailsPage> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF3B82F6).withOpacity(0.1),
+                                color: const Color(
+                                  0xFF3B82F6,
+                                ).withValues(alpha: 0.1),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -287,6 +297,66 @@ class _MedicineDetailsPageState extends State<MedicineDetailsPage> {
                         ),
 
                         const SizedBox(height: 30),
+
+                        // ── Add to Cart Button ──
+                        // Wrapped in Obx() so it rebuilds instantly whenever
+                        // controller.cart (RxList) changes — this fixes the
+                        // "nothing happens visually after tapping Add to Cart" issue.
+                        if (widget.onAddToCart != null) ...[
+                          const SizedBox(height: 8),
+                          Obx(() {
+                            final inCart =
+                                widget.isInCart?.call(medicine) ?? false;
+
+                            return SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  widget.onAddToCart!(medicine);
+
+                                  // Immediate visual feedback so the user
+                                  // knows the tap actually worked.
+                                  Get.snackbar(
+                                    isEnglish
+                                        ? 'Added to Cart'
+                                        : 'কার্টে যোগ হয়েছে',
+                                    isEnglish
+                                        ? '${medicine.name} has been added to your cart'
+                                        : '${medicine.nameBangla} আপনার কার্টে যোগ করা হয়েছে',
+                                    snackPosition: SnackPosition.BOTTOM,
+                                    backgroundColor: const Color(0xFF2563EB),
+                                    colorText: Colors.white,
+                                    duration: const Duration(seconds: 2),
+                                    margin: const EdgeInsets.all(12),
+                                    borderRadius: 12,
+                                    icon: const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.white,
+                                    ),
+                                  );
+                                },
+                                icon: Icon(
+                                  inCart
+                                      ? Icons.check_circle
+                                      : Icons.shopping_cart_outlined,
+                                ),
+                                label: Text(
+                                  inCart ? 'Added to Cart' : 'Add to Cart',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF2563EB),
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
                       ],
                     ),
                   ),
@@ -313,7 +383,7 @@ class _MedicineDetailsPageState extends State<MedicineDetailsPage> {
         border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -389,7 +459,7 @@ class _MedicineDetailsPageState extends State<MedicineDetailsPage> {
         border: Border.all(color: borderColor, width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

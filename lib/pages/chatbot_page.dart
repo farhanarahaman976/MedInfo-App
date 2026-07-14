@@ -37,7 +37,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
     _messages.add(
       ChatMessage(
         text:
-            'হ্যালো! 👋 আমি MedInfo BD এর AI Assistant।\n\nতোমার symptom বা সমস্যা বলো (যেমন: "মাথা ব্যথা করছে" বা "জ্বর হয়েছে"), আমি সেই অনুযায়ী medicine suggest করবো।\n\n⚠️ মনে রেখো, এটা ডাক্তারের পরামর্শের বিকল্প নয়।',
+            'হ্যালো! 👋 আমি MedAI - তোমার health assistant।\n\nতোমার symptom বা সমস্যা বলো (যেমন: "মাথা ব্যথা করছে" বা "জ্বর হয়েছে"), আমি সেই অনুযায়ী advice ও medicine suggest করবো।\n\n⚠️ মনে রেখো, এটা ডাক্তারের পরামর্শের বিকল্প নয়।',
         sender: MessageSender.bot,
       ),
     );
@@ -101,18 +101,21 @@ class _ChatbotPageState extends State<ChatbotPage> {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.smart_toy_outlined,
-                  size: 18, color: Colors.white),
+              child: const Icon(
+                Icons.chat_bubble_outline_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: 10),
             const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'MedInfo AI Assistant',
+                  'MedAI',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
                 Text(
@@ -151,12 +154,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
     final isUser = message.sender == MessageSender.user;
 
     return Column(
-      crossAxisAlignment:
-          isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: isUser
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment:
-              isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+          mainAxisAlignment: isUser
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (!isUser) _buildBotAvatar(),
@@ -164,16 +169,16 @@ class _ChatbotPageState extends State<ChatbotPage> {
             Flexible(
               child: Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
                 decoration: BoxDecoration(
                   color: isUser
                       ? _primary
                       : message.isError
-                          ? Colors.red.shade50
-                          : (isDark
-                              ? const Color(0xFF1C1E26)
-                              : Colors.white),
+                      ? Colors.red.shade50
+                      : (isDark ? const Color(0xFF1C1E26) : Colors.white),
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(16),
                     topRight: const Radius.circular(16),
@@ -186,8 +191,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
                           color: message.isError
                               ? Colors.red.shade200
                               : (isDark
-                                  ? Colors.white.withOpacity(0.06)
-                                  : Colors.grey.withOpacity(0.12)),
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : Colors.grey.withValues(alpha: 0.12)),
                           width: 0.8,
                         ),
                 ),
@@ -199,10 +204,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     color: isUser
                         ? Colors.white
                         : message.isError
-                            ? Colors.red.shade700
-                            : (isDark
-                                ? Colors.white
-                                : const Color(0xFF0F1117)),
+                        ? Colors.red.shade700
+                        : (isDark ? Colors.white : const Color(0xFF0F1117)),
                   ),
                 ),
               ),
@@ -210,7 +213,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
           ],
         ),
 
-        // Suggested medicines
         if (message.suggestedMedicines.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(left: 38, bottom: 14),
@@ -229,12 +231,12 @@ class _ChatbotPageState extends State<ChatbotPage> {
     return Container(
       width: 30,
       height: 30,
-      decoration: const BoxDecoration(
-        color: _primary,
-        shape: BoxShape.circle,
+      decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
+      child: const Icon(
+        Icons.chat_bubble_outline_rounded,
+        size: 16,
+        color: Colors.white,
       ),
-      child: const Icon(Icons.smart_toy_outlined,
-          size: 16, color: Colors.white),
     );
   }
 
@@ -252,8 +254,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isDark
-              ? Colors.white.withOpacity(0.06)
-              : Colors.grey.withOpacity(0.12),
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.grey.withValues(alpha: 0.12),
           width: 0.8,
         ),
       ),
@@ -266,8 +268,11 @@ class _ChatbotPageState extends State<ChatbotPage> {
               color: const Color(0xFFEEF2FF),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.medication_rounded,
-                color: _primary, size: 20),
+            child: const Icon(
+              Icons.medication_rounded,
+              color: _primary,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -297,7 +302,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
             ),
           ),
           const SizedBox(width: 6),
-          // View details
           GestureDetector(
             onTap: () => Navigator.push(
               context,
@@ -313,13 +317,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     : const Color(0xFFF2F6FB),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(Icons.info_outline_rounded,
-                  size: 16,
-                  color: isDark ? Colors.white70 : const Color(0xFF0F1117)),
+              child: Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: isDark ? Colors.white70 : const Color(0xFF0F1117),
+              ),
             ),
           ),
           const SizedBox(width: 6),
-          // Add to cart
           GestureDetector(
             onTap: inCart ? null : () => widget.onAddToCart(medicine),
             child: Container(
@@ -356,16 +361,12 @@ class _ChatbotPageState extends State<ChatbotPage> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: isDark
-                    ? Colors.white.withOpacity(0.06)
-                    : Colors.grey.withOpacity(0.12),
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.grey.withValues(alpha: 0.12),
                 width: 0.8,
               ),
             ),
-            child: const SizedBox(
-              width: 24,
-              height: 12,
-              child: _TypingDots(),
-            ),
+            child: const SizedBox(width: 24, height: 12, child: _TypingDots()),
           ),
         ],
       ),
@@ -386,7 +387,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
         color: isDark ? const Color(0xFF1C1E26) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
@@ -412,8 +413,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   color: isDark ? Colors.grey[500] : Colors.grey[400],
                 ),
                 filled: true,
-                fillColor:
-                    isDark ? const Color(0xFF262836) : const Color(0xFFF2F6FB),
+                fillColor: isDark
+                    ? const Color(0xFF262836)
+                    : const Color(0xFFF2F6FB),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -443,8 +445,11 @@ class _ChatbotPageState extends State<ChatbotPage> {
                         valueColor: AlwaysStoppedAnimation(Colors.white),
                       ),
                     )
-                  : const Icon(Icons.send_rounded,
-                      color: Colors.white, size: 20),
+                  : const Icon(
+                      Icons.send_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
             ),
           ),
         ],

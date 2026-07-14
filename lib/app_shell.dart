@@ -4,20 +4,28 @@ import 'models/medicine.dart';
 import 'models/user.dart';
 import 'pages/home_page.dart';
 import 'pages/medicine_list_demo_page.dart';
-import 'pages/search_page.dart';
 import 'pages/cart_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/reminder_page.dart';
 import 'pages/login_page.dart';
+import 'pages/order_history_page.dart';
+import 'pages/admin_shell.dart';
 import 'services/firebase_user_service.dart';
+import 'services/reminder_service.dart';
+import 'dart:async';
+import 'services/medicine_service.dart';
 
 class AppController extends GetxController {
   final FirebaseUserService _firebaseUserService = FirebaseUserService();
 
-  final Rx<User?> currentUser = Rx<User?>(null);
-  final RxInt currentIndex = 0.obs;
-  final RxList<Medicine> cart = <Medicine>[].obs;
-  final List<Medicine> medicines = MedicineListDemoPage.sampleMedicines;
+  final MedicineService _medicineService = MedicineService();
+final Rx<User?> currentUser = Rx<User?>(null);
+final RxInt currentIndex = 0.obs;
+final RxList<Medicine> cart = <Medicine>[].obs;
+
+// FIX: Firestore theke real-time e medicine list load hobe (static list na)
+final RxList<Medicine> medicines = <Medicine>[].obs;
+StreamSubscription<List<Medicine>>? _medicinesSubscription;
 
   final RxBool isDarkMode = false.obs;
   void toggleDarkMode() => isDarkMode.value = !isDarkMode.value;
@@ -26,10 +34,24 @@ class AppController extends GetxController {
   final RxBool isCheckingAuth = true.obs;
 
   @override
-  void onInit() {
-    super.onInit();
-    _loadCurrentUser();
-  }
+void onInit() {
+  super.onInit();
+  _loadCurrentUser();
+  _listenToMedicines(); // FIX: notun line
+}
+
+// FIX: notun method — Firestore medicines collection stream kore
+void _listenToMedicines() {
+  _medicinesSubscription = _medicineService.getAllMedicines().listen((meds) {
+    medicines.value = meds;
+  });
+}
+
+@override
+void onClose() {
+  _medicinesSubscription?.cancel();
+  super.onClose();
+}
 
   Future<void> _loadCurrentUser() async {
     try {
@@ -55,14 +77,45 @@ class AppController extends GetxController {
 
   void navigateToTab(int index) => currentIndex.value = index;
 
+  // ── Admin check ──────────────────────────────────────────────────────────
+  // এখানে তোমার নিজের email বসাও — এই email দিয়ে login করলে Admin Panel দেখা যাবে
+  static const List<String> _adminEmails = ['farhana.rahaman37@gmail.com'];
+
+  bool get isAdmin =>
+      currentUser.value != null &&
+      _adminEmails.contains(currentUser.value!.email.toLowerCase().trim());
+
   void addToCart(Medicine medicine) {
-    if (isInCart(medicine)) return;
-    cart.add(medicine);
+    final index = cart.indexWhere((item) => item.name == medicine.name);
+    if (index != -1) {
+      final existing = cart[index];
+      final updated = existing.copyWithQuantity(
+        existing.quantity + (medicine.quantity > 0 ? medicine.quantity : 1),
+      );
+      cart[index] = updated;
+    } else {
+      cart.add(
+        medicine.copyWithQuantity(
+          medicine.quantity > 0 ? medicine.quantity : 1,
+        ),
+      );
+    }
+  }
+
+  void updateCartQuantity(Medicine medicine, int newQuantity) {
+    if (newQuantity < 1) {
+      return; // minimum 1, delete korte hole remove button use korbe
+    }
+    final index = cart.indexWhere((item) => item.name == medicine.name);
+    if (index == -1) return;
+    cart[index] = cart[index].copyWithQuantity(newQuantity);
   }
 
   void removeFromCart(Medicine medicine) {
     cart.removeWhere((item) => item.name == medicine.name);
   }
+
+  void clearCart() => cart.clear();
 
   bool isInCart(Medicine medicine) {
     return cart.any((item) => item.name == medicine.name);
@@ -73,7 +126,8 @@ class AppController extends GetxController {
 // App open হলে এখানে প্রথমে check হয়:
 //  - auth check চলাকালীন → Splash
 //  - currentUser == null → Login/Register flow
-//  - currentUser != null → Main bottom-nav shell
+//  - currentUser != null && isAdmin → Admin Shell (আলাদা, সিম্পল ড্যাশবোর্ড)
+//  - currentUser != null && !isAdmin → Main bottom-nav shell (normal user)
 
 class AppShell extends StatelessWidget {
   const AppShell({super.key});
@@ -98,6 +152,11 @@ class AppShell extends StatelessWidget {
         );
       }
 
+      // FIX: admin হলে সম্পূর্ণ আলাদা, সিম্পল শেল দেখাও
+     if (controller.isAdmin) {
+        return const AdminShell();
+      }
+
       return _MainShell(controller: controller);
     });
   }
@@ -110,52 +169,16 @@ class _SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1A56DB), Color(0xFF6366F1)],
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 88,
-                height: 88,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.medication_outlined,
-                  size: 44,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 28),
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation(Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return const Scaffold(
+      backgroundColor: Colors.white,
+      body: SizedBox.expand(),
     );
   }
 }
 
-// ─── Main Shell (bottom-nav UI, shown after login) ──────────────────────────
+
+
+// ─── Main Shell (bottom-nav UI, shown after login for normal users) ──────────
 
 class _MainShell extends StatelessWidget {
   final AppController controller;
@@ -178,19 +201,29 @@ class _MainShell extends StatelessWidget {
                 onProfileTap: () => controller.navigateToTab(3),
               );
             case 1:
-              return SearchPage(
-                medicines: controller.medicines,
-                cart: controller.cart,
-                onAddToCart: controller.addToCart,
-                isInCart: controller.isInCart,
+              // FIX: CartPage আগে plain object হিসেবে cart পেত, তাই cart
+              // add/remove/quantity update হলেও এই page rebuild হতো না।
+              // এখানে Obx() + .toList() ব্যবহার করে explicitly cart read করা
+              // হচ্ছে, যাতে GetX বুঝতে পারে এই widget টা cart এর উপর নির্ভরশীল
+              // এবং cart পরিবর্তন হলেই এটা rebuild হয়।
+              return Obx(
+                () => CartPage(
+                  cartItems: controller.cart.toList(),
+                  onRemove: controller.removeFromCart,
+                  onBrowseMedicines: () => Get.to(
+                  () => MedicineListDemoPage(
+                  medicines: controller.medicines,
+                  onAddToCart: controller.addToCart,
+                  isInCart: controller.isInCart,
+                  ),
+                  ),
+                  currentUser: controller.currentUser.value,
+                  onOrderPlaced: controller.clearCart,
+                  onUpdateQuantity: controller.updateCartQuantity,
+                ),
               );
             case 2:
-              return CartPage(
-                cartItems: controller.cart,
-                onRemove: controller.removeFromCart,
-                onBrowseMedicines: () =>
-                    Get.to(() => const MedicineListDemoPage()),
-              );
+              return const ReminderPage();
             case 3:
               return ProfilePage(
                 user: controller.currentUser.value,
@@ -199,8 +232,6 @@ class _MainShell extends StatelessWidget {
                 onRegister: controller.updateUser,
                 onLogout: controller.logout,
               );
-            case 4:
-              return const ReminderPage();
             default:
               return HomePage(
                 medicines: controller.medicines,
@@ -221,6 +252,16 @@ class _MainShell extends StatelessWidget {
             currentIndex: controller.currentIndex.value,
             onTap: controller.navigateToTab,
             type: BottomNavigationBarType.fixed,
+            selectedItemColor: const Color(0xFF1A56DB),
+            unselectedItemColor: Colors.grey,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 11,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w400,
+              fontSize: 11,
+            ),
             items: const [
               BottomNavigationBarItem(
                 icon: Icon(Icons.home_outlined),
@@ -228,24 +269,19 @@ class _MainShell extends StatelessWidget {
                 label: 'Home',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.search_outlined),
-                activeIcon: Icon(Icons.search_rounded),
-                label: 'Search',
-              ),
-              BottomNavigationBarItem(
                 icon: Icon(Icons.shopping_cart_outlined),
                 activeIcon: Icon(Icons.shopping_cart_rounded),
                 label: 'Cart',
               ),
               BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline_rounded),
-                activeIcon: Icon(Icons.person_rounded),
-                label: 'Profile',
-              ),
-              BottomNavigationBarItem(
                 icon: Icon(Icons.alarm_outlined),
                 activeIcon: Icon(Icons.alarm_rounded),
                 label: 'Reminder',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.person_outline_rounded),
+                activeIcon: Icon(Icons.person_rounded),
+                label: 'Profile',
               ),
             ],
           ),
@@ -256,13 +292,14 @@ class _MainShell extends StatelessWidget {
 }
 
 // ─── Redesigned App Drawer ──────────────────────────────────────────────────────
+// FIX: এই drawer এখন শুধু normal user shell (_MainShell) এর জন্য —
+// admin আলাদা _AdminShell এ থাকে বলে drawer-এর admin item টা আর দরকার নেই,
+// তাই সরিয়ে ফেলা হলো।
 
 class _AppDrawer extends StatelessWidget {
   final AppController controller;
 
   const _AppDrawer({required this.controller});
-
-  static const Color _primary = Color(0xFF1A56DB);
 
   @override
   Widget build(BuildContext context) {
@@ -307,10 +344,10 @@ class _AppDrawer extends StatelessWidget {
                           width: 56,
                           height: 56,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.4),
+                              color: Colors.white.withValues(alpha: 0.4),
                               width: 2,
                             ),
                           ),
@@ -363,7 +400,7 @@ class _AppDrawer extends StatelessWidget {
                           vertical: 5,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Text(
@@ -411,11 +448,11 @@ class _AppDrawer extends StatelessWidget {
                       icon: Icons.shopping_cart_rounded,
                       label: 'My Cart',
                       badge: controller.cart.isNotEmpty
-                          ? '${controller.cart.length}'
+                          ? '${controller.cart.fold<int>(0, (s, m) => s + m.quantity)}'
                           : null,
                       onTap: () {
                         Navigator.pop(context);
-                        controller.navigateToTab(2);
+                        controller.navigateToTab(1);
                       },
                     ),
                     _DrawerItem(
@@ -431,9 +468,32 @@ class _AppDrawer extends StatelessWidget {
                       label: 'Medicine Reminders',
                       onTap: () {
                         Navigator.pop(context);
-                        controller.navigateToTab(4);
+                        controller.navigateToTab(2);
                       },
                     ),
+                    _DrawerItem(
+                      icon: Icons.receipt_long_rounded,
+                      label: 'My Orders',
+                      onTap: () {
+                        Navigator.pop(context);
+                        if (controller.currentUser.value == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Order history দেখার জন্য login করো।',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const OrderHistoryPage(),
+                          ),
+                        );
+                      },
+                    ),
+
                     _DrawerItem(
                       icon: Icons.category_rounded,
                       label: 'All Categories',
@@ -495,6 +555,7 @@ class _AppDrawer extends StatelessWidget {
                             labelColor: Colors.red.shade400,
                             onTap: () async {
                               Navigator.pop(context);
+                              await ReminderService().cancelAllOnLogout();
                               await controller.logout();
                             },
                           )
@@ -611,7 +672,7 @@ class _DrawerItem extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: effectiveIconColor.withOpacity(0.1),
+                  color: effectiveIconColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 18, color: effectiveIconColor),
@@ -687,7 +748,7 @@ class _DrawerToggle extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
+              color: iconColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, size: 18, color: iconColor),
@@ -840,8 +901,8 @@ class CategoriesPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(18),
                       border: Border.all(
                         color: isDark
-                            ? Colors.white.withOpacity(0.06)
-                            : Colors.grey.withOpacity(0.1),
+                            ? Colors.white.withValues(alpha: 0.06)
+                            : Colors.grey.withValues(alpha: 0.1),
                         width: 0.8,
                       ),
                     ),
@@ -951,8 +1012,8 @@ class CategoryMedicinesPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
                       color: isDark
-                          ? Colors.white.withOpacity(0.06)
-                          : Colors.grey.withOpacity(0.1),
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : Colors.grey.withValues(alpha: 0.1),
                       width: 0.8,
                     ),
                   ),

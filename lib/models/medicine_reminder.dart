@@ -28,6 +28,7 @@ class MedicineReminder {
   int get notificationId => id.hashCode.abs() % 100000;
 
   MedicineReminder copyWith({
+    String? id,
     String? medicineName,
     String? dosage,
     TimeOfDay? time,
@@ -37,7 +38,7 @@ class MedicineReminder {
     String? notes,
   }) {
     return MedicineReminder(
-      id: id,
+      id: id ?? this.id,
       medicineName: medicineName ?? this.medicineName,
       dosage: dosage ?? this.dosage,
       time: time ?? this.time,
@@ -49,6 +50,7 @@ class MedicineReminder {
     );
   }
 
+  // ── Local storage (SharedPreferences) ─────────────────────────────────────
   Map<String, dynamic> toJson() => {
         'id': id,
         'medicineName': medicineName,
@@ -79,6 +81,39 @@ class MedicineReminder {
     );
   }
 
+  // ── Firestore ──────────────────────────────────────────────────────────────
+  // id exclude kora hoyeche — Firestore doc ID alada thake
+  Map<String, dynamic> toFirestore() => {
+        'medicineName': medicineName,
+        'dosage': dosage,
+        'timeHour': time.hour,
+        'timeMinute': time.minute,
+        'repeatType': repeatType.index,
+        'weekDays': weekDays,
+        'isActive': isActive,
+        'createdAt': createdAt.toIso8601String(),
+        'notes': notes ?? '',
+      };
+
+  // docId = Firestore document ID (auto-generated)
+  factory MedicineReminder.fromFirestore(Map<String, dynamic> data, String docId) {
+    return MedicineReminder(
+      id: docId,
+      medicineName: data['medicineName'] as String? ?? '',
+      dosage: data['dosage'] as String? ?? '',
+      time: TimeOfDay(
+        hour: data['timeHour'] as int? ?? 8,
+        minute: data['timeMinute'] as int? ?? 0,
+      ),
+      repeatType: RepeatType.values[data['repeatType'] as int? ?? 0],
+      weekDays: List<int>.from(data['weekDays'] ?? []),
+      isActive: data['isActive'] as bool? ?? true,
+      createdAt: DateTime.tryParse(data['createdAt'] as String? ?? '') ?? DateTime.now(),
+      notes: data['notes'] as String?,
+    );
+  }
+
+  // ── Display helpers ────────────────────────────────────────────────────────
   String get timeFormatted {
     final hour = time.hour;
     final minute = time.minute.toString().padLeft(2, '0');

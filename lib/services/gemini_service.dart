@@ -5,19 +5,103 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/medicine.dart';
 import '../models/chat_message.dart';
 
-// ─── GeminiService ───────────────────────────────────────────────────────────
-// Symptom লিখলে, app এর medicine list থেকে relevant medicine suggest করে।
+// ─── GeminiService (now powered by Groq) ────────────────────────────────────
+// Symptom লিখলে, app এর medicine list থেকে relevant medicine suggest করে
+// এবং general health advice দেয়।
 //
-// API key .env file থেকে load হয় (GEMINI_API_KEY=...)
-// Key পাওয়ার জন্য: https://aistudio.google.com/app/apikey
+// API key .env file থেকে load হয় (GROQ_API_KEY=...)
+// Key পাওয়ার জন্য: https://console.groq.com/keys
 
 class GeminiService {
-  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+  static String get _apiKey => dotenv.env['GROQ_API_KEY'] ?? '';
 
   static const String _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+      'https://api.groq.com/openai/v1/chat/completions';
 
-  /// User এর symptom/query পাঠিয়ে medicine suggestion পায়
+  static const String _model = 'llama-3.1-8b-instant';
+
+  // কতগুলো medicine AI-কে context হিসেবে পাঠানো হবে (token বাঁচানোর জন্য)
+  static const int _maxContextMedicines = 15;
+
+  // ── Common Banglish/Bangla symptom keywords -> English "uses" keywords map
+  // এটা দিয়ে Banglish input ("matha betha", "jor") এর সাথে English uses
+  // ("Headache", "Fever") match করানো হয়
+  static const Map<String, List<String>> _symptomKeywordMap = {
+    'fever': ['matha betha', 'matha bytha', 'মাথা ব্যথা', 'headache'],
+    'jor': ['fever', 'জ্বর', 'temperature'],
+    'jwor': ['fever', 'জ্বর', 'temperature'],
+    'headache': ['matha betha', 'মাথা ব্যথা', 'matha bytha'],
+    'pet betha': ['stomach pain', 'abdominal pain', 'পেট ব্যথা'],
+    'gastric': ['acidity', 'গ্যাস্ট্রিক', 'বদহজম', 'dyspepsia'],
+    'allergy': ['অ্যালার্জি', 'itching', 'চুলকানি'],
+    'cough': ['কাশি', 'kashi'],
+    'kashi': ['cough', 'কাশি'],
+    'cold': ['ঠান্ডা', 'thanda', 'common cold'],
+    'thanda': ['cold', 'common cold', 'ঠান্ডা'],
+    'diarrhea': ['পাতলা পায়খানা', 'loose motion'],
+    'pain': ['betha', 'bytha', 'ব্যথা'],
+  };
+
+  /// User এর input থেকে relevant medicines খুঁজে বের করে (token বাঁচানোর জন্য)
+  List<Medicine> _filterRelevantMedicines(
+      String userInput, List<Medicine> medicines) {
+    final input = userInput.toLowerCase();
+
+    // input থেকে extra keywords বের করা (mapping table দিয়ে)
+    final extraKeywords = <String>[];
+    _symptomKeywordMap.forEach((key, values) {
+      if (input.contains(key)) {
+        extraKeywords.addAll(values.map((v) => v.toLowerCase()));
+      }
+    });
+
+    final scored = <Medicine, int>{};
+
+    for (final m in medicines) {
+      int score = 0;
+
+      // English uses check
+      for (final use in m.uses) {
+        final useLower = use.toLowerCase();
+        if (input.contains(useLower) ||
+            extraKeywords.any((k) => useLower.contains(k) || k.contains(useLower))) {
+          score += 2;
+        }
+      }
+
+      // Bangla uses check (direct substring, কারণ Bangla word boundary সমস্যা নাই)
+      for (final use in m.usesBangla) {
+        if (userInput.contains(use) ||
+            extraKeywords.any((k) => use.contains(k) || k.contains(use))) {
+          score += 2;
+        }
+      }
+
+      // Category check (lower priority)
+      if (input.contains(m.category.toLowerCase())) {
+        score += 1;
+      }
+
+      if (score > 0) {
+        scored[m] = score;
+      }
+    }
+
+    final sorted = scored.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    var result = sorted.take(_maxContextMedicines).map((e) => e.key).toList();
+
+    // কোনো match না পেলে - common/general medicines এর একটা ছোট subset পাঠানো হচ্ছে
+    // যাতে AI অন্তত general suggestion দিতে পারে
+    if (result.isEmpty) {
+      result = medicines.take(_maxContextMedicines).toList();
+    }
+
+    return result;
+  }
+
+  /// User এর symptom/query পাঠিয়ে general advice + medicine suggestion পায়
   Future<ChatMessage> getSuggestion({
     required String userInput,
     required List<Medicine> medicines,
@@ -25,34 +109,44 @@ class GeminiService {
     if (_apiKey.isEmpty) {
       return ChatMessage(
         text:
-            'AI Chatbot এখনো setup হয়নি। .env ফাইলে GEMINI_API_KEY বসাও।\n\nKey নেওয়ার লিংক: https://aistudio.google.com/app/apikey',
+            'AI Chatbot এখনো setup হয়নি। .env ফাইলে GROQ_API_KEY বসাও।\n\nKey নেওয়ার লিংক: https://console.groq.com/keys',
         sender: MessageSender.bot,
         isError: true,
       );
     }
 
     try {
-      // Medicine list কে compact text এ convert করা হচ্ছে (token বাঁচানোর জন্য)
-      final medicineContext = medicines
+      // পুরো list না পাঠিয়ে, relevant medicines filter করে নেওয়া হচ্ছে
+      final relevantMedicines = _filterRelevantMedicines(userInput, medicines);
+
+      final medicineContext = relevantMedicines
           .map((m) =>
-              '${m.name} | Category: ${m.category} | Uses: ${m.uses.join(", ")}')
+              '${m.name} (${m.nameBangla}) | Category: ${m.category} | '
+              'Uses: ${m.uses.join(", ")} | '
+              'ব্যবহার: ${m.usesBangla.join(", ")}')
           .join('\n');
 
       final prompt = '''
-You are a helpful medical assistant inside "MedInfo BD", a medicine information app for Bangladesh.
+You are "MedInfo AI Assistant", a friendly and knowledgeable health assistant inside "MedInfo BD", a medicine information app for Bangladesh.
 
-Here is the list of medicines available in the app (format: Name | Category | Uses):
+Here is a list of possibly relevant medicines available in the app (format: Name (Bangla name) | Category | Uses | ব্যবহার):
 $medicineContext
 
 User's message: "$userInput"
 
-Instructions:
-1. If the user describes a symptom or health issue, suggest 1-3 relevant medicines ONLY from the list above that could help with that symptom (based on the "Uses" field).
-2. Write a short, friendly, helpful reply (2-4 sentences). You can mix Bangla and English (Banglish) naturally.
-3. ALWAYS remind the user to consult a doctor or pharmacist before taking any medicine, especially for serious or persistent symptoms.
-4. If no medicine in the list matches, set "suggested_medicines" to an empty array and politely say so, recommending a doctor visit.
-5. If the user's message is just a greeting or general question (not a symptom), respond naturally and set "suggested_medicines" to an empty array.
-6. Do NOT suggest medicines not present in the list above.
+Your role:
+1. Act like a helpful, caring health assistant (similar to a knowledgeable friend) — not just a medicine-name generator.
+2. If the user describes a symptom or health issue:
+   - First, give 2-4 sentences of general, safe self-care advice relevant to that symptom (rest, hydration, sleep, warm/cold compress, diet tips, when to see a doctor, etc.).
+   - THEN, if relevant, suggest 1-3 medicines ONLY from the list above that could help (based on "Uses"/"ব্যবহার"). If nothing in the list fits well, it's fine to suggest none — general advice alone is still useful.
+3. ALWAYS gently remind the user to consult a doctor or pharmacist before taking any medicine, especially for serious, persistent, or worsening symptoms.
+4. If the user's message is just a greeting or general question (not a symptom), respond naturally and warmly, with "suggested_medicines" as an empty array.
+5. Do NOT suggest medicines not present in the list above.
+
+Language rules (VERY IMPORTANT):
+- Respond primarily in Bangla, optionally mixing in simple English words naturally (Banglish), like a Bangladeshi person texting a friend.
+- Write Bangla with CORRECT spelling and grammar (শুদ্ধ বানান ও বাক্যগঠন). Carefully proofread every Bangla word before finalizing — do not produce misspelled or broken Bangla.
+- Keep sentences short, clear, and natural — avoid overly formal or robotic phrasing.
 
 Respond ONLY with valid JSON in this exact format, no markdown, no extra text:
 {
@@ -65,18 +159,15 @@ Respond ONLY with valid JSON in this exact format, no markdown, no extra text:
         Uri.parse(_baseUrl),
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': _apiKey,
+          'Authorization': 'Bearer $_apiKey',
         },
         body: jsonEncode({
-          'contents': [
-            {
-              'parts': [{'text': prompt}]
-            }
+          'model': _model,
+          'messages': [
+            {'role': 'user', 'content': prompt}
           ],
-          'generationConfig': {
-            'temperature': 0.4,
-            'responseMimeType': 'application/json',
-          },
+          'temperature': 0.3,
+          'response_format': {'type': 'json_object'},
         }),
       );
 
@@ -91,7 +182,7 @@ Respond ONLY with valid JSON in this exact format, no markdown, no extra text:
 
       final data = jsonDecode(response.body);
       final rawText =
-          data['candidates']?[0]?['content']?['parts']?[0]?['text'] as String?;
+          data['choices']?[0]?['message']?['content'] as String?;
 
       if (rawText == null) {
         return ChatMessage(
@@ -101,7 +192,7 @@ Respond ONLY with valid JSON in this exact format, no markdown, no extra text:
         );
       }
 
-      // Clean up in case Gemini wraps in markdown fences
+      // Clean up in case model wraps in markdown fences
       final cleaned =
           rawText.replaceAll('```json', '').replaceAll('```', '').trim();
 

@@ -1,8 +1,8 @@
-// home_page.dart  ── only the changed sections shown; rest stays the same
-// CHANGES:
-//   1. _StatCard → _StatButton  (tappable, ripple, onTap callback)
-//   2. _buildStatsRow  passes navigation callbacks
-//   3. _buildAppBar  → profile avatar shows initial only when userName != null
+// home_page.dart
+// CHANGES (this round):
+//   1. App bar logo → "MedInfo" gradient text + bandage/plus icon
+//   2. Floating action button icon → chat bubble (message) icon instead of robot
+//   3. Search bar → now uses the logo's teal-blue gradient instead of translucent white
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,7 +16,7 @@ class HomePage extends StatefulWidget {
   final List<Medicine> medicines;
   final List<Medicine> cart;
   final Function(Medicine) onAddToCart;
-  final Function(Medicine) isInCart;
+  final bool Function(Medicine) isInCart;
   final String? userName;
   final VoidCallback? onProfileTap;
 
@@ -37,7 +37,12 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   String? _selectedCategory;
 
-  static const Color _primary = Color(0xFF1A56DB);
+  static const Color _primary = Color.fromRGBO(59, 130, 196, 1);
+
+  // Logo gradient colors — reused for the search bar so it visually matches
+  // the "MedInfo" logo in the app bar.
+  static const Color _logoGradientStart = Color(0xFF3B82C4);
+  static const Color _logoGradientEnd = Color(0xFF0F6E56);
 
   String get _greeting {
     final hour = DateTime.now().hour;
@@ -46,7 +51,7 @@ class _HomePageState extends State<HomePage> {
     return 'Good Evening 🌙';
   }
 
-  // FIX: only show initial when userName is available (logged in)
+  // Only show initial when userName is available (logged in)
   // Returns null when not logged in → avatar shows person icon instead
   String? get _userInitial {
     final name = widget.userName ?? '';
@@ -58,7 +63,7 @@ class _HomePageState extends State<HomePage> {
       'label': 'Pain Killer',
       'icon': Icons.psychology_outlined,
       'bg': Color(0xFFEEF2FF),
-      'iconColor': Color(0xFF1A56DB),
+      'iconColor': Color.fromARGB(255, 38, 129, 214),
     },
     {
       'label': 'Fever & Pain',
@@ -132,7 +137,10 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        child: const Icon(Icons.smart_toy_outlined, color: Colors.white),
+        child: const Icon(
+          Icons.chat_bubble_outline_rounded,
+          color: Colors.white,
+        ),
       ),
       body: SafeArea(
         top: true,
@@ -193,14 +201,39 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            'MedInfo',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: isDark ? Colors.white : const Color(0xFF0F1117),
+
+          // ── MedInfo logo: gradient text + bandage/plus icon ──
+          ShaderMask(
+            shaderCallback: (bounds) => const LinearGradient(
+              colors: [Color(0xFF3B82C4), Color(0xFF0F6E56)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ).createShader(bounds),
+            child: const Text(
+              'MedInfo',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                letterSpacing: -0.3,
+              ),
             ),
           ),
+          const SizedBox(width: 4),
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF3B82C4), Color(0xFF0F6E56)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
+          ),
+
           const Spacer(),
           // Notification bell
           Stack(
@@ -240,8 +273,8 @@ class _HomePageState extends State<HomePage> {
           ),
           const SizedBox(width: 10),
           // Profile avatar
-          // FIX: show initial only when logged in (initial != null)
-          //       show person icon when not logged in
+          // shows initial only when logged in (initial != null)
+          // shows person icon when not logged in
           GestureDetector(
             onTap: widget.onProfileTap,
             child: Container(
@@ -276,14 +309,20 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ── Hero Section ────────────────────────────────────────────────────────────
+  // ── Hero Section ────────────────────────────────────────────────────────
 
   Widget _buildHeroSection(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 14, 14, 0),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _primary,
+        // Whole hero card now uses the logo's teal-blue gradient instead
+        // of a flat solid blue, so it visually ties back to the "MedInfo" logo.
+        gradient: const LinearGradient(
+          colors: [_logoGradientStart, _logoGradientEnd],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -320,7 +359,7 @@ class _HomePageState extends State<HomePage> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.15),
+                  color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
@@ -344,7 +383,7 @@ class _HomePageState extends State<HomePage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
+                color: Colors.white.withValues(alpha: 0.18),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -359,7 +398,7 @@ class _HomePageState extends State<HomePage> {
                     'Search medicines...',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.white.withOpacity(0.75),
+                      color: Colors.white.withValues(alpha: 0.75),
                     ),
                   ),
                 ],
@@ -371,7 +410,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ── Stats Row  (NOW TAPPABLE BUTTONS) ──────────────────────────────────────
+  // ── Stats Row  (tappable buttons) ──────────────────────────────────────
 
   Widget _buildStatsRow(BuildContext context, bool isDark) {
     final allMedicines = widget.medicines;
@@ -390,7 +429,13 @@ class _HomePageState extends State<HomePage> {
             isDark: isDark,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const MedicineListDemoPage()),
+              MaterialPageRoute(
+                builder: (_) => MedicineListDemoPage(
+                  medicines: allMedicines,
+                  onAddToCart: widget.onAddToCart,
+                  isInCart: widget.isInCart,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -411,14 +456,13 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(width: 8),
-          // Brands button → BrandsPage (or show snackbar if page not ready)
+          // Brands button
           _StatButton(
             number: '${brands.length}+',
             label: 'Brands',
             color: const Color(0xFF854F0B),
             isDark: isDark,
             onTap: () {
-              // TODO: Replace with BrandsPage when ready
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('${brands.length} brands available'),
@@ -512,8 +556,8 @@ class _HomePageState extends State<HomePage> {
                               ? null
                               : Border.all(
                                   color: isDark
-                                      ? Colors.white.withOpacity(0.06)
-                                      : Colors.grey.withOpacity(0.1),
+                                      ? Colors.white.withValues(alpha: 0.06)
+                                      : Colors.grey.withValues(alpha: 0.1),
                                   width: 0.5,
                                 ),
                         ),
@@ -585,7 +629,11 @@ class _HomePageState extends State<HomePage> {
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const MedicineListDemoPage(),
+                    builder: (_) => MedicineListDemoPage(
+                      medicines: widget.medicines,
+                      onAddToCart: widget.onAddToCart,
+                      isInCart: widget.isInCart,
+                    ),
                   ),
                 ),
                 child: const Text(
@@ -637,7 +685,7 @@ class _HomePageState extends State<HomePage> {
                   itemCount: displayList.length,
                   itemBuilder: (context, index) {
                     final medicine = displayList[index];
-                    final inCart = widget.isInCart(medicine) as bool;
+                    final inCart = widget.isInCart(medicine);
                     return _MedicineCard(
                       medicine: medicine,
                       inCart: inCart,
@@ -646,8 +694,11 @@ class _HomePageState extends State<HomePage> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              MedicineDetailsPage(medicine: medicine),
+                          builder: (_) => MedicineDetailsPage(
+                            medicine: medicine,
+                            onAddToCart: widget.onAddToCart,
+                            isInCart: (m) => widget.isInCart(m),
+                          ),
                         ),
                       ),
                       onAddToCart: () => widget.onAddToCart(medicine),
@@ -660,7 +711,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// ─── Stat Button (REPLACES _StatCard — now tappable) ──────────────────────────
+// ─── Stat Button ──────────────────────────────────────────────────────────────
 
 class _StatButton extends StatelessWidget {
   final String number;
@@ -692,8 +743,8 @@ class _StatButton extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: isDark
-                    ? Colors.white.withOpacity(0.06)
-                    : Colors.grey.withOpacity(0.12),
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : Colors.grey.withValues(alpha: 0.12),
                 width: 0.5,
               ),
             ),
@@ -734,7 +785,7 @@ class _MedicineCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onAddToCart;
 
-  static const Color _primary = Color(0xFF1A56DB);
+  static const Color _primary = Color.fromARGB(255, 68, 130, 196);
 
   const _MedicineCard({
     required this.medicine,
@@ -771,8 +822,8 @@ class _MedicineCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isDark
-                ? Colors.white.withOpacity(0.06)
-                : Colors.grey.withOpacity(0.12),
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.grey.withValues(alpha: 0.12),
             width: 0.5,
           ),
         ),
@@ -958,8 +1009,8 @@ class _MedicineSearchDelegate extends SearchDelegate<String> {
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isDark
-                  ? Colors.white.withOpacity(0.06)
-                  : Colors.grey.withOpacity(0.1),
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.grey.withValues(alpha: 0.1),
               width: 0.8,
             ),
           ),
@@ -1005,7 +1056,11 @@ class _MedicineSearchDelegate extends SearchDelegate<String> {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => MedicineDetailsPage(medicine: m),
+                builder: (_) => MedicineDetailsPage(
+                  medicine: m,
+                  onAddToCart: onAddToCart,
+                  isInCart: (m) => isInCart(m) as bool,
+                ),
               ),
             ),
           ),

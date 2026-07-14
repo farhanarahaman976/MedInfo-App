@@ -3,7 +3,16 @@ import '../models/medicine.dart';
 import 'medicine_details_page.dart';
 
 class MedicineListDemoPage extends StatelessWidget {
-  const MedicineListDemoPage({super.key});
+  final List<Medicine> medicines; 
+  final void Function(Medicine)? onAddToCart;
+  final bool Function(Medicine)? isInCart;
+
+ const MedicineListDemoPage({
+    super.key,
+    required this.medicines, // FIX
+    this.onAddToCart,
+    this.isInCart,
+    });
 
   static final List<Medicine> sampleMedicines = [
   Medicine(
@@ -2950,9 +2959,9 @@ class MedicineListDemoPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Medicine List'), elevation: 0),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: sampleMedicines.length,
+        itemCount: medicines.length,
         itemBuilder: (context, index) {
-          final medicine = sampleMedicines[index];
+          final medicine = medicines[index];
           final displayPrice = medicine.price > 0
               ? medicine.price
               : medicine.unitPrice;
@@ -3015,8 +3024,11 @@ class MedicineListDemoPage extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        MedicineDetailsPage(medicine: medicine),
+                    builder: (context) => MedicineDetailsPage(
+                      medicine: medicine,
+                      onAddToCart: onAddToCart,
+                      isInCart: isInCart,
+                    ),
                   ),
                 );
               },

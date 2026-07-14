@@ -7,7 +7,7 @@ class SearchPage extends StatefulWidget {
   final List<Medicine> medicines;
   final List<Medicine> cart;
   final Function(Medicine) onAddToCart;
-  final Function(Medicine) isInCart;
+  final bool Function(Medicine) isInCart;
 
   const SearchPage({
     super.key,
@@ -82,9 +82,20 @@ class _SearchPageState extends State<SearchPage> {
               // Search Bar
               Container(
                 decoration: BoxDecoration(
+                  color: const Color(0xFFF0F7FF),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF93C5FD),
+                    width: 1.2,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: const Color.fromARGB(
+                        255,
+                        94,
+                        137,
+                        205,
+                      ).withValues(alpha: 0.12),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -93,10 +104,19 @@ class _SearchPageState extends State<SearchPage> {
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search medicines...',
-                    prefixIcon: const Icon(Icons.search),
+                    hintStyle: TextStyle(
+                      color: const Color.fromARGB(255, 110, 160, 184),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                     suffixIcon: _searchTerm.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.clear),
+                            icon: Icon(
+                              Icons.clear,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                             onPressed: () => setState(() => _searchTerm = ''),
                           )
                         : null,
@@ -104,8 +124,19 @@ class _SearchPageState extends State<SearchPage> {
                       borderRadius: BorderRadius.circular(16),
                       borderSide: BorderSide.none,
                     ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                        width: 1.5,
+                      ),
+                    ),
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: const Color(0xFFF0F7FF),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 16,
@@ -225,8 +256,11 @@ class _SearchPageState extends State<SearchPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) =>
-                                      MedicineDetailsPage(medicine: medicine),
+                                  builder: (context) => MedicineDetailsPage(
+                                    medicine: medicine,
+                                    onAddToCart: widget.onAddToCart,
+                                    isInCart: widget.isInCart,
+                                  ),
                                 ),
                               );
                             },
@@ -261,7 +295,9 @@ class _CategoryChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onSelected(),
       backgroundColor: Colors.grey[100],
-      selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+      selectedColor: Theme.of(
+        context,
+      ).colorScheme.primary.withValues(alpha: 0.2),
       checkmarkColor: Theme.of(context).colorScheme.primary,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     );
@@ -287,7 +323,7 @@ class _MedicineCard extends StatelessWidget {
       onTap: onTap,
       child: Card(
         elevation: 4,
-        shadowColor: Colors.blue.withOpacity(0.08),
+        shadowColor: Colors.blue.withValues(alpha: 0.08),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         color: Colors.white,
         child: Padding(

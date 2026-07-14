@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
 import '../models/medicine.dart';
+import '../models/user.dart';
 
 /// Cart page displaying order items
 class CartPage extends StatelessWidget {
   final List<Medicine> cartItems;
   final Function(Medicine) onRemove;
   final VoidCallback onBrowseMedicines;
+  final User? currentUser;
+  final VoidCallback? onOrderPlaced;
+  final void Function(Medicine, int)? onUpdateQuantity;
 
   const CartPage({
     super.key,
     required this.cartItems,
     required this.onRemove,
     required this.onBrowseMedicines,
+    this.currentUser,
+    this.onOrderPlaced,
+    this.onUpdateQuantity,
   });
 
-  double get _totalPrice =>
-      cartItems.fold(0, (sum, item) => sum + item.displayPrice);
+  double get _totalPrice => cartItems.fold<double>(
+    0.0,
+    (sum, item) => sum + (item.displayPrice * item.quantity),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +126,7 @@ class CartPage extends StatelessWidget {
                                 decoration: BoxDecoration(
                                   color: Theme.of(
                                     context,
-                                  ).colorScheme.primary.withOpacity(0.1),
+                                  ).colorScheme.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
@@ -159,13 +168,43 @@ class CartPage extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              // Remove button
-                              IconButton(
-                                onPressed: () => onRemove(medicine),
-                                icon: const Icon(
-                                  Icons.remove_circle,
-                                  color: Colors.red,
-                                ),
+                              Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        onPressed: () {
+                                          if (onUpdateQuantity != null) {
+                                            onUpdateQuantity!(
+                                              medicine,
+                                              medicine.quantity - 1,
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(Icons.remove),
+                                      ),
+                                      Text('${medicine.quantity}'),
+                                      IconButton(
+                                        onPressed: () {
+                                          if (onUpdateQuantity != null) {
+                                            onUpdateQuantity!(
+                                              medicine,
+                                              medicine.quantity + 1,
+                                            );
+                                          }
+                                        },
+                                        icon: const Icon(Icons.add),
+                                      ),
+                                    ],
+                                  ),
+                                  IconButton(
+                                    onPressed: () => onRemove(medicine),
+                                    icon: const Icon(
+                                      Icons.remove_circle,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -243,6 +282,7 @@ class CartPage extends StatelessWidget {
                             ),
                           ),
                           onPressed: () {
+                            onOrderPlaced?.call();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: const Text(
