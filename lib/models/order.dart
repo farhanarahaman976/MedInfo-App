@@ -4,12 +4,14 @@ import 'medicine.dart';
 // ─── OrderItem ───────────────────────────────────────────────────────────────
 
 class OrderItem {
+  final String medicineId; // FIX: stock decrement er jonno medicine-er Firestore doc ID lagbe
   final String name;
   final String category;
   final double unitPrice;
   final int quantity;
 
   const OrderItem({
+    this.medicineId = '',
     required this.name,
     required this.category,
     required this.unitPrice,
@@ -20,6 +22,7 @@ class OrderItem {
 
   factory OrderItem.fromMedicine(Medicine medicine, {int quantity = 1}) {
     return OrderItem(
+      medicineId: medicine.id,
       name: medicine.name,
       category: medicine.category,
       unitPrice: medicine.displayPrice,
@@ -29,6 +32,7 @@ class OrderItem {
 
   Map<String, dynamic> toMap() {
     return {
+      'medicineId': medicineId,
       'name': name,
       'category': category,
       'unitPrice': unitPrice,
@@ -38,6 +42,7 @@ class OrderItem {
 
   factory OrderItem.fromMap(Map<String, dynamic> map) {
     return OrderItem(
+      medicineId: map['medicineId'] ?? '',
       name: map['name'] ?? '',
       category: map['category'] ?? '',
       unitPrice: (map['unitPrice'] as num?)?.toDouble() ?? 0.0,

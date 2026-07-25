@@ -56,7 +56,7 @@ class AdminOrdersPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'কোনো Order নেই',
+                      'No orders have been placed yet.',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,

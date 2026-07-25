@@ -15,7 +15,10 @@ class Medicine {
   final List<String> sideEffectsBangla;
   final String usageBangla;
   final int quantity;
-  final int? stockQuantity; // NOTUN: real inventory stock (null = ekhono set kora hoy nai)
+  final int? stockQuantity; // real inventory stock (null = ekhono set kora hoy nai)
+  final String? imageUrl; // medicine image URL (null/empty = fallback icon dekhabe)
+  final double averageRating; // NOTUN: review system — 0.0 to 5.0
+  final int reviewCount; // NOTUN: koto ta review joma hoise
 
   const Medicine({
     this.id = '',
@@ -35,7 +38,10 @@ class Medicine {
     required this.sideEffectsBangla,
     required this.usageBangla,
     this.quantity = 1,
-    this.stockQuantity, // NOTUN
+    this.stockQuantity,
+    this.imageUrl,
+    this.averageRating = 0.0, // NOTUN
+    this.reviewCount = 0, // NOTUN
   }) : unitPrice = unitPrice ?? price ?? 0.0;
 
   double get displayPrice => unitPrice;
@@ -59,11 +65,14 @@ class Medicine {
       'sideEffectsBangla': sideEffectsBangla,
       'usageBangla': usageBangla,
       'quantity': quantity,
-      if (stockQuantity != null) 'stockQuantity': stockQuantity, // NOTUN
+      if (stockQuantity != null) 'stockQuantity': stockQuantity,
+      if (imageUrl != null && imageUrl!.isNotEmpty) 'imageUrl': imageUrl,
+      'averageRating': averageRating, // NOTUN
+      'reviewCount': reviewCount, // NOTUN
     };
   }
 
-  // Firebase থেকে আনার জন্য — FIX: এখন Firestore document ID-ও নেওয়া হয়
+  // Firebase থেকে আনার জন্য
   factory Medicine.fromMap(Map<String, dynamic> map, String id) {
     return Medicine(
       id: id,
@@ -83,7 +92,10 @@ class Medicine {
       sideEffectsBangla: List<String>.from(map['sideEffectsBangla'] ?? []),
       usageBangla: map['usageBangla'] ?? '',
       quantity: (map['quantity'] as num?)?.toInt() ?? 1,
-      stockQuantity: (map['stockQuantity'] as num?)?.toInt(), // NOTUN
+      stockQuantity: (map['stockQuantity'] as num?)?.toInt(),
+      imageUrl: map['imageUrl'] as String?,
+      averageRating: (map['averageRating'] as num?)?.toDouble() ?? 0.0, // NOTUN
+      reviewCount: (map['reviewCount'] as num?)?.toInt() ?? 0, // NOTUN
     );
   }
 
@@ -105,11 +117,14 @@ class Medicine {
       sideEffectsBangla: sideEffectsBangla,
       usageBangla: usageBangla,
       quantity: newQuantity,
-      stockQuantity: stockQuantity, // NOTUN
+      stockQuantity: stockQuantity,
+      imageUrl: imageUrl,
+      averageRating: averageRating, // NOTUN
+      reviewCount: reviewCount, // NOTUN
     );
   }
 
-  // FIX: Admin edit form-এর জন্য — id বাদে অন্য যেকোনো field আপডেট করে নতুন object তৈরি করে
+  // Admin edit form-এর জন্য
   Medicine copyWithDetails({
     String? name,
     String? company,
@@ -125,6 +140,7 @@ class Medicine {
     List<String>? sideEffects,
     List<String>? sideEffectsBangla,
     String? usageBangla,
+    String? imageUrl,
   }) {
     return Medicine(
       id: id,
@@ -143,11 +159,14 @@ class Medicine {
       sideEffectsBangla: sideEffectsBangla ?? this.sideEffectsBangla,
       usageBangla: usageBangla ?? this.usageBangla,
       quantity: quantity,
-      stockQuantity: stockQuantity, // NOTUN
+      stockQuantity: stockQuantity,
+      imageUrl: imageUrl ?? this.imageUrl,
+      averageRating: averageRating, // NOTUN
+      reviewCount: reviewCount, // NOTUN
     );
   }
 
-  // NOTUN: Admin-er stock update form-er jonno — shudhu stockQuantity change kore
+  // Admin-er stock update form-er jonno
   Medicine copyWithStock(int newStock) {
     return Medicine(
       id: id,
@@ -167,6 +186,9 @@ class Medicine {
       usageBangla: usageBangla,
       quantity: quantity,
       stockQuantity: newStock,
+      imageUrl: imageUrl,
+      averageRating: averageRating, // NOTUN
+      reviewCount: reviewCount, // NOTUN
     );
   }
 }

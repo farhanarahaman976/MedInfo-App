@@ -30,6 +30,18 @@ class MedicineService {
         .update(medicine.toMap());
   }
 
+  /// NOTUN: shudhu stockQuantity field ta update kore — Admin medicine list e
+  /// inline +/- stepper theke direct call hoy, tai puro medicine document
+  /// rewrite korar dorkar nai, ekta field-i update hoy.
+  Future<void> updateStock(String id, int newStock) async {
+    if (id.isEmpty) {
+      throw Exception('Medicine ID missing — stock update করা যাবে না');
+    }
+    await _firestore.collection(medicinesCollection).doc(id).update({
+      'stockQuantity': newStock < 0 ? 0 : newStock,
+    });
+  }
+
   /// Medicine delete করা (Admin)
   Future<void> deleteMedicine(String id) async {
     await _firestore.collection(medicinesCollection).doc(id).delete();

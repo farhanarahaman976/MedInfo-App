@@ -24,6 +24,14 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   String _searchTerm = '';
   String? _selectedCategory;
+  // NOTUN: GridView-er shathe attach kore Scrollbar dekhanor jonno
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   List<String> get _categories {
     return widget.medicines.map((m) => m.category).toSet().toList();
@@ -236,37 +244,48 @@ class _SearchPageState extends State<SearchPage> {
                           ],
                         ),
                       )
-                    : GridView.builder(
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              childAspectRatio: 0.75,
-                            ),
-                        itemCount: _filteredMedicines.length,
-                        itemBuilder: (context, index) {
-                          final medicine = _filteredMedicines[index];
-                          final inCart = widget.isInCart(medicine);
+                    // NOTUN: Scrollbar wrap kora holo — right side e ekta
+                    // draggable thumb dekhabe, jeta dhore niche/upore
+                    // ekbare jawa jabe, list scroll na kore o.
+                    : Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: true,
+                        interactive: true,
+                        radius: const Radius.circular(8),
+                        child: GridView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.only(right: 6),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 2,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: 0.75,
+                              ),
+                          itemCount: _filteredMedicines.length,
+                          itemBuilder: (context, index) {
+                            final medicine = _filteredMedicines[index];
+                            final inCart = widget.isInCart(medicine);
 
-                          return _MedicineCard(
-                            medicine: medicine,
-                            inCart: inCart,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => MedicineDetailsPage(
-                                    medicine: medicine,
-                                    onAddToCart: widget.onAddToCart,
-                                    isInCart: widget.isInCart,
+                            return _MedicineCard(
+                              medicine: medicine,
+                              inCart: inCart,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MedicineDetailsPage(
+                                      medicine: medicine,
+                                      onAddToCart: widget.onAddToCart,
+                                      isInCart: widget.isInCart,
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                            onAddToCart: () => widget.onAddToCart(medicine),
-                          );
-                        },
+                                );
+                              },
+                              onAddToCart: () => widget.onAddToCart(medicine),
+                            );
+                          },
+                        ),
                       ),
               ),
             ],

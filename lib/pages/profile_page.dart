@@ -38,6 +38,17 @@ class _ProfilePageState extends State<ProfilePage> {
   static const Color lightBg = Color(0xFFEAF3F7);
   static const Color borderColor = Color(0xFFC7DEE8);
 
+  // FIX: dark-mode variants — page আগে শুধু light color hardcode করে রাখা ছিল,
+  // theme brightness চেক না করার কারণে dark mode এ text/background ঠিকভাবে
+  // দেখাচ্ছিল না। এই কালারগুলো dark mode এর জন্য ব্যবহার হবে।
+  static const Color darkBg = Color(0xFF10141A);
+  static const Color darkCard = Color(0xFF1C1E26);
+  static const Color darkFieldBg = Color(0xFF262A33);
+  static const Color darkBorder = Color(0x1FFFFFFF); // white @ 12%
+  static const Color darkHeading = Color(0xFF5FD9B8); // light teal accent
+  static const Color darkSecondaryText = Color(0xFF8A93A3);
+  static const Color darkPrimaryText = Colors.white;
+
   // Local copy so edits reflect immediately without waiting for parent rebuild
   late User? _localUser;
 
@@ -83,29 +94,35 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: lightBg,
+      backgroundColor: isDark ? darkBg : lightBg,
       body: SafeArea(
         child: _localUser == null
-            ? _buildLoggedOut()
-            : _buildLoggedIn(_localUser!),
+            ? _buildLoggedOut(isDark)
+            : _buildLoggedIn(_localUser!, isDark),
       ),
     );
   }
 
   // ── Logged Out ───────────────────────────────────────────────────────────────
 
-  Widget _buildLoggedOut() {
+  Widget _buildLoggedOut(bool isDark) {
+    final headingColor = isDark ? darkPrimaryText : darkTeal;
+    final secondaryColor = isDark ? darkSecondaryText : const Color(0xFF6FA0B0);
+    final cardColor = isDark ? darkCard : Colors.white;
+    final effectiveBorder = isDark ? darkBorder : borderColor;
+
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         children: [
-          // Top header — unchanged from original
+          // Top header
           Container(
             width: double.infinity,
-            decoration: const BoxDecoration(
-              color: lightBg,
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: isDark ? darkBg : lightBg,
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(48),
                 bottomRight: Radius.circular(48),
               ),
@@ -117,9 +134,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   width: 84,
                   height: 84,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: borderColor, width: 1.5),
+                    border: Border.all(color: effectiveBorder, width: 1.5),
                   ),
                   child: Stack(
                     alignment: Alignment.center,
@@ -215,11 +232,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Medicine Information App',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Color(0xFF6FA0B0),
+                    color: secondaryColor,
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -227,33 +244,33 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          // Login / Register card — unchanged
+          // Login / Register card
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
             child: Card(
               elevation: 0,
-              color: Colors.white,
+              color: cardColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
-                side: const BorderSide(color: borderColor, width: 0.5),
+                side: BorderSide(color: effectiveBorder, width: 0.5),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
+                    Text(
                       'Your Profile 👤',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: darkTeal,
+                        color: headingColor,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
+                    Text(
                       'Sign in to access your profile, orders & more',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF6FA0B0)),
+                      style: TextStyle(fontSize: 12, color: secondaryColor),
                     ),
                     const SizedBox(height: 22),
                     SizedBox(
@@ -320,18 +337,18 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          // Features — unchanged
+          // Features
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Why create an account?',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF6FA0B0),
+                    color: secondaryColor,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -362,7 +379,11 @@ class _ProfilePageState extends State<ProfilePage> {
 
   // ── Logged In ────────────────────────────────────────────────────────────────
 
-  Widget _buildLoggedIn(User user) {
+  Widget _buildLoggedIn(User user, bool isDark) {
+    final headingColor = isDark ? darkPrimaryText : darkTeal;
+    final cardColor = isDark ? darkCard : Colors.white;
+    final effectiveBorder = isDark ? darkBorder : borderColor;
+
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
@@ -370,9 +391,9 @@ class _ProfilePageState extends State<ProfilePage> {
           // Header with avatar card — same gradient as original, Edit btn added
           Container(
             width: double.infinity,
-            decoration: const BoxDecoration(
-              color: lightBg,
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: isDark ? darkBg : lightBg,
+              borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(48),
                 bottomRight: Radius.circular(48),
               ),
@@ -384,12 +405,12 @@ class _ProfilePageState extends State<ProfilePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
+                    Text(
                       'Your Profile',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
-                        color: darkTeal,
+                        color: headingColor,
                       ),
                     ),
                     // ── Edit button ──
@@ -422,7 +443,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                // Avatar gradient card — same as original
+                // Avatar gradient card — same as original (works fine on dark too)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -556,21 +577,21 @@ class _ProfilePageState extends State<ProfilePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ── Account Information (same as original) ──
-                const Text(
+                // ── Account Information ──
+                Text(
                   'Account Information',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: darkTeal,
+                    color: headingColor,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: borderColor, width: 1),
+                    border: Border.all(color: effectiveBorder, width: 1),
                   ),
                   child: Column(
                     children: [
@@ -579,13 +600,13 @@ class _ProfilePageState extends State<ProfilePage> {
                         label: 'Full Name',
                         value: user.name.isNotEmpty ? user.name : '—',
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ProfileInfoRow(
                         icon: Icons.email_outlined,
                         label: 'Email',
                         value: user.email.isNotEmpty ? user.email : '—',
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ProfileInfoRow(
                         icon: Icons.phone_outlined,
                         label: 'Phone',
@@ -593,7 +614,7 @@ class _ProfilePageState extends State<ProfilePage> {
                             ? '—'
                             : user.phone,
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ProfileInfoRow(
                         icon: Icons.location_on_outlined,
                         label: 'Address',
@@ -609,21 +630,21 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 const SizedBox(height: 20),
 
-                // ── Medical Information (new section) ──
-                const Text(
+                // ── Medical Information ──
+                Text(
                   'Medical Information',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: darkTeal,
+                    color: headingColor,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: borderColor, width: 1),
+                    border: Border.all(color: effectiveBorder, width: 1),
                   ),
                   child: Column(
                     children: [
@@ -633,17 +654,17 @@ class _ProfilePageState extends State<ProfilePage> {
                         value: user.bloodGroup.isEmpty ? '—' : user.bloodGroup,
                         iconColor: const Color(0xFFE24B4A),
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ProfileInfoRow(
                         icon: Icons.monitor_weight_outlined,
                         label: 'Weight',
                         value: user.weight == null ? '—' : '${user.weight} kg',
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ProfileInfoRow(
                         icon: Icons.height_rounded,
                         label: 'Height',
-                        value: user.height == null ? '—' : '${user.height} cm',
+                        value: user.height == null ? '—' : '${user.height} feet',
                         isLast: true,
                       ),
                     ],
@@ -652,21 +673,21 @@ class _ProfilePageState extends State<ProfilePage> {
 
                 const SizedBox(height: 20),
 
-                // ── Health Conditions (new section) ──
-                const Text(
+                // ── Health Conditions ──
+                Text(
                   'Health Conditions',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: darkTeal,
+                    color: headingColor,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: borderColor, width: 1),
+                    border: Border.all(color: effectiveBorder, width: 1),
                   ),
                   child: Column(
                     children: [
@@ -676,27 +697,27 @@ class _ProfilePageState extends State<ProfilePage> {
                         icon: Icons.water_drop_outlined,
                         iconColor: const Color(0xFFBA7517),
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ConditionRow(
                         label: 'Hypertension',
                         value: user.hasHypertension,
                         icon: Icons.monitor_heart_outlined,
                         iconColor: const Color(0xFFE24B4A),
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ConditionRow(
                         label: 'Thyroid',
                         value: user.hasThyroid,
                         icon: Icons.biotech_outlined,
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ConditionRow(
                         label: 'Heart Disease',
                         value: user.hasHeartDisease,
                         icon: Icons.favorite_border_rounded,
                         iconColor: const Color(0xFFE24B4A),
                       ),
-                      _divider(),
+                      _divider(isDark),
                       _ConditionRow(
                         label: 'Asthma',
                         value: user.hasAsthma,
@@ -712,20 +733,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 if (user.emergencyContactName.isNotEmpty ||
                     user.emergencyContactPhone.isNotEmpty) ...[
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     'Emergency Contact',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: darkTeal,
+                      color: headingColor,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: cardColor,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: borderColor, width: 1),
+                      border: Border.all(color: effectiveBorder, width: 1),
                     ),
                     child: Column(
                       children: [
@@ -737,7 +758,7 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         if (user.emergencyContactName.isNotEmpty &&
                             user.emergencyContactPhone.isNotEmpty)
-                          _divider(),
+                          _divider(isDark),
                         if (user.emergencyContactPhone.isNotEmpty)
                           _ProfileInfoRow(
                             icon: Icons.phone_callback_outlined,
@@ -802,8 +823,11 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _divider() =>
-      Divider(height: 0, indent: 56, color: borderColor.withValues(alpha: 0.5));
+  Widget _divider(bool isDark) => Divider(
+        height: 0,
+        indent: 56,
+        color: (isDark ? darkBorder : borderColor).withValues(alpha: 0.5),
+      );
 }
 
 // ─── Edit Bottom Sheet ─────────────────────────────────────────────────────────
@@ -828,6 +852,13 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
   static const Color darkTeal = Color(0xFF0F6E56);
   static const Color fieldBg = Color(0xFFF2F8FA);
   static const Color borderColor = Color(0xFFC7DEE8);
+
+  // FIX: dark-mode variants for the edit sheet
+  static const Color darkSheetBg = Color(0xFF1C1E26);
+  static const Color darkFieldBg = Color(0xFF262A33);
+  static const Color darkBorder = Color(0x1FFFFFFF);
+  static const Color darkHeading = Colors.white;
+  static const Color darkLabel = Color(0xFF8A93A3);
 
   static const List<String> _bloodGroups = [
     'A+',
@@ -947,20 +978,27 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
     String label,
     IconData icon, {
     TextInputType? keyboardType,
+    required bool isDark,
   }) {
     return TextFormField(
       controller: ctrl,
       keyboardType: keyboardType,
-      style: const TextStyle(color: darkTeal, fontSize: 14),
+      style: TextStyle(color: isDark ? darkHeading : darkTeal, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF8FB4C9), fontSize: 13),
+        labelStyle: TextStyle(
+          color: isDark ? darkLabel : const Color(0xFF8FB4C9),
+          fontSize: 13,
+        ),
         prefixIcon: Icon(icon, color: primaryGreen, size: 20),
         filled: true,
-        fillColor: fieldBg,
+        fillColor: isDark ? darkFieldBg : fieldBg,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: borderColor, width: 1),
+          borderSide: BorderSide(
+            color: isDark ? darkBorder : borderColor,
+            width: 1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -976,14 +1014,15 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
     bool value,
     ValueChanged<bool> onChanged, {
     Color iconColor = primaryGreen,
+    required bool isDark,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       decoration: BoxDecoration(
-        color: fieldBg,
+        color: isDark ? darkFieldBg : fieldBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: 1),
+        border: Border.all(color: isDark ? darkBorder : borderColor, width: 1),
       ),
       child: Row(
         children: [
@@ -992,7 +1031,10 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: darkTeal, fontSize: 14),
+              style: TextStyle(
+                color: isDark ? darkHeading : darkTeal,
+                fontSize: 14,
+              ),
             ),
           ),
           Switch.adaptive(
@@ -1000,8 +1042,10 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
             onChanged: onChanged,
             activeThumbColor: primaryGreen,
             activeTrackColor: const Color(0xFFA8D4E0),
-            inactiveThumbColor: const Color(0xFF8FB4C9),
-            inactiveTrackColor: const Color(0xFFEAF3F7),
+            inactiveThumbColor: isDark
+                ? const Color(0xFF565F70)
+                : const Color(0xFF8FB4C9),
+            inactiveTrackColor: isDark ? darkFieldBg : const Color(0xFFEAF3F7),
           ),
           SizedBox(
             width: 28,
@@ -1010,7 +1054,9 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: value ? darkTeal : const Color(0xFF8FB4C9),
+                color: value
+                    ? (isDark ? darkHeading : darkTeal)
+                    : (isDark ? darkLabel : const Color(0xFF8FB4C9)),
               ),
             ),
           ),
@@ -1021,10 +1067,13 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final headingColor = isDark ? darkHeading : darkTeal;
+
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: isDark ? darkSheetBg : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(
         20,
@@ -1043,44 +1092,58 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFC7DEE8),
+                  color: isDark ? darkBorder : const Color(0xFFC7DEE8),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Edit Profile',
               style: TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w600,
-                color: darkTeal,
+                color: headingColor,
               ),
             ),
             const SizedBox(height: 16),
 
             // Basic fields
-            _field(_nameCtrl, 'Full Name', Icons.person_outline_rounded),
+            _field(
+              _nameCtrl,
+              'Full Name',
+              Icons.person_outline_rounded,
+              isDark: isDark,
+            ),
             const SizedBox(height: 12),
             _field(
               _phoneCtrl,
               'Phone Number',
               Icons.phone_outlined,
               keyboardType: TextInputType.phone,
+              isDark: isDark,
             ),
             const SizedBox(height: 12),
-            _field(_addressCtrl, 'Address', Icons.location_on_outlined),
+            _field(
+              _addressCtrl,
+              'Address',
+              Icons.location_on_outlined,
+              isDark: isDark,
+            ),
             const SizedBox(height: 12),
 
             // Blood group dropdown
             DropdownButtonFormField<String>(
               initialValue: _bloodGroup.isEmpty ? null : _bloodGroup,
-              style: const TextStyle(color: darkTeal, fontSize: 14),
-              dropdownColor: Colors.white,
+              style: TextStyle(
+                color: isDark ? darkHeading : darkTeal,
+                fontSize: 14,
+              ),
+              dropdownColor: isDark ? darkFieldBg : Colors.white,
               decoration: InputDecoration(
                 labelText: 'Blood Group',
-                labelStyle: const TextStyle(
-                  color: Color(0xFF8FB4C9),
+                labelStyle: TextStyle(
+                  color: isDark ? darkLabel : const Color(0xFF8FB4C9),
                   fontSize: 13,
                 ),
                 prefixIcon: const Icon(
@@ -1089,19 +1152,25 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
                   size: 20,
                 ),
                 filled: true,
-                fillColor: fieldBg,
+                fillColor: isDark ? darkFieldBg : fieldBg,
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: borderColor, width: 1),
+                  borderSide: BorderSide(
+                    color: isDark ? darkBorder : borderColor,
+                    width: 1,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: const BorderSide(color: primaryGreen, width: 1.5),
                 ),
               ),
-              hint: const Text(
+              hint: Text(
                 'Select blood group',
-                style: TextStyle(color: Color(0xFF8FB4C9), fontSize: 13),
+                style: TextStyle(
+                  color: isDark ? darkLabel : const Color(0xFF8FB4C9),
+                  fontSize: 13,
+                ),
               ),
               items: _bloodGroups
                   .map(
@@ -1109,7 +1178,10 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
                       value: g,
                       child: Text(
                         g,
-                        style: const TextStyle(color: darkTeal, fontSize: 14),
+                        style: TextStyle(
+                          color: isDark ? darkHeading : darkTeal,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                   )
@@ -1129,17 +1201,19 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    isDark: isDark,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: _field(
                     _heightCtrl,
-                    'Height (cm)',
+                    'Height (feet)',
                     Icons.height_rounded,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
                     ),
+                    isDark: isDark,
                   ),
                 ),
               ],
@@ -1147,12 +1221,12 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
             const SizedBox(height: 16),
 
             // Health conditions
-            const Text(
+            Text(
               'Health Conditions',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: darkTeal,
+                color: headingColor,
                 letterSpacing: 0.4,
               ),
             ),
@@ -1163,6 +1237,7 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               _hasDiabetes,
               (v) => setState(() => _hasDiabetes = v),
               iconColor: const Color(0xFFBA7517),
+              isDark: isDark,
             ),
             _toggleRow(
               'Hypertension',
@@ -1170,12 +1245,14 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               _hasHypertension,
               (v) => setState(() => _hasHypertension = v),
               iconColor: const Color(0xFFE24B4A),
+              isDark: isDark,
             ),
             _toggleRow(
               'Thyroid',
               Icons.biotech_outlined,
               _hasThyroid,
               (v) => setState(() => _hasThyroid = v),
+              isDark: isDark,
             ),
             _toggleRow(
               'Heart Disease',
@@ -1183,6 +1260,7 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               _hasHeartDisease,
               (v) => setState(() => _hasHeartDisease = v),
               iconColor: const Color(0xFFE24B4A),
+              isDark: isDark,
             ),
             _toggleRow(
               'Asthma',
@@ -1190,15 +1268,16 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               _hasAsthma,
               (v) => setState(() => _hasAsthma = v),
               iconColor: const Color(0xFF185FA5),
+              isDark: isDark,
             ),
 
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Emergency Contact',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: darkTeal,
+                color: headingColor,
                 letterSpacing: 0.4,
               ),
             ),
@@ -1207,6 +1286,7 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               _emergencyNameCtrl,
               'Contact Person Name',
               Icons.person_pin_outlined,
+              isDark: isDark,
             ),
             const SizedBox(height: 12),
             _field(
@@ -1214,6 +1294,7 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
               'Contact Phone',
               Icons.phone_callback_outlined,
               keyboardType: TextInputType.phone,
+              isDark: isDark,
             ),
             const SizedBox(height: 20),
 
@@ -1224,8 +1305,11 @@ class _EditBottomSheetState extends State<_EditBottomSheet> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: darkTeal,
-                      side: const BorderSide(color: borderColor, width: 1),
+                      foregroundColor: headingColor,
+                      side: BorderSide(
+                        color: isDark ? darkBorder : borderColor,
+                        width: 1,
+                      ),
                       padding: const EdgeInsets.symmetric(vertical: 13),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1301,6 +1385,10 @@ class _ConditionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryColor =
+        isDark ? const Color(0xFF8A93A3) : const Color(0xFF6FA0B0);
+
     return Padding(
       padding: EdgeInsets.fromLTRB(14, 12, 14, isLast ? 12 : 0),
       child: Row(
@@ -1309,11 +1397,14 @@ class _ConditionRow extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFEAF3F7), Color(0xFFF2F8FA)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: isDark
+                  ? null
+                  : const LinearGradient(
+                      colors: [Color(0xFFEAF3F7), Color(0xFFF2F8FA)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : null,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, size: 18, color: iconColor),
@@ -1325,9 +1416,9 @@ class _ConditionRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF6FA0B0),
+                    color: secondaryColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -1337,7 +1428,13 @@ class _ConditionRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             decoration: BoxDecoration(
-              color: value ? const Color(0xFFFAEEDA) : const Color(0xFFEAF3F7),
+              color: value
+                  ? (isDark
+                      ? const Color(0xFFBA7517).withValues(alpha: 0.18)
+                      : const Color(0xFFFAEEDA))
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFEAF3F7)),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -1346,8 +1443,8 @@ class _ConditionRow extends StatelessWidget {
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: value
-                    ? const Color(0xFF854F0B)
-                    : const Color(0xFF0F6E56),
+                    ? (isDark ? const Color(0xFFE0A94D) : const Color(0xFF854F0B))
+                    : (isDark ? Colors.white : const Color(0xFF0F6E56)),
               ),
             ),
           ),
@@ -1357,7 +1454,7 @@ class _ConditionRow extends StatelessWidget {
   }
 }
 
-// ─── Feature Card (logged out screen) — unchanged ────────────────────────────
+// ─── Feature Card (logged out screen) ─────────────────────────────────────────
 
 class _FeatureCard extends StatelessWidget {
   final IconData icon;
@@ -1374,12 +1471,20 @@ class _FeatureCard extends StatelessWidget {
   Widget build(BuildContext context) {
     const Color primaryGreen = Color(0xFF3B82C4);
     const Color borderColor = Color(0xFFC7DEE8);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? Colors.white : const Color(0xFF0F6E56);
+    final subtitleColor =
+        isDark ? const Color(0xFF8A93A3) : const Color(0xFF6FA0B0);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1C1E26) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor, width: 1),
+        border: Border.all(
+          color: isDark ? const Color(0x1FFFFFFF) : borderColor,
+          width: 1,
+        ),
       ),
       child: Row(
         children: [
@@ -1387,11 +1492,14 @@ class _FeatureCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFEAF3F7), Color(0xFFF2F8FA)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: isDark
+                  ? null
+                  : const LinearGradient(
+                      colors: [Color(0xFFEAF3F7), Color(0xFFF2F8FA)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : null,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, size: 20, color: primaryGreen),
@@ -1403,18 +1511,15 @@ class _FeatureCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF0F6E56),
+                    color: titleColor,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF6FA0B0),
-                  ),
+                  style: TextStyle(fontSize: 11, color: subtitleColor),
                 ),
               ],
             ),
@@ -1425,7 +1530,7 @@ class _FeatureCard extends StatelessWidget {
   }
 }
 
-// ─── Profile Info Row — unchanged ────────────────────────────────────────────
+// ─── Profile Info Row ─────────────────────────────────────────────────────────
 
 class _ProfileInfoRow extends StatelessWidget {
   final IconData icon;
@@ -1445,6 +1550,11 @@ class _ProfileInfoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const Color primaryGreen = Color(0xFF3B82C4);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final labelColor =
+        isDark ? const Color(0xFF8A93A3) : const Color(0xFF6FA0B0);
+    final valueColor = isDark ? Colors.white : const Color(0xFF0F6E56);
+
     return Padding(
       padding: EdgeInsets.fromLTRB(14, 12, 14, isLast ? 12 : 0),
       child: Row(
@@ -1454,11 +1564,14 @@ class _ProfileInfoRow extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFEAF3F7), Color(0xFFF2F8FA)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: isDark
+                  ? null
+                  : const LinearGradient(
+                      colors: [Color(0xFFEAF3F7), Color(0xFFF2F8FA)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : null,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, size: 18, color: iconColor ?? primaryGreen),
@@ -1470,19 +1583,19 @@ class _ProfileInfoRow extends StatelessWidget {
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF6FA0B0),
+                    color: labelColor,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF0F6E56),
+                    color: valueColor,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,

@@ -12,20 +12,29 @@ import 'pages/order_history_page.dart';
 import 'pages/admin_shell.dart';
 import 'services/firebase_user_service.dart';
 import 'services/reminder_service.dart';
+import 'services/cart_service.dart'; // Cart persistence service
 import 'dart:async';
 import 'services/medicine_service.dart';
+
+// App-wide logo gradient — used consistently across drawer/sidebar and other UI
+class AppColors {
+  static const Color logoGradientStart = Color(0xFF3B82C4);
+  static const Color logoGradientEnd = Color(0xFF0F6E56);
+}
 
 class AppController extends GetxController {
   final FirebaseUserService _firebaseUserService = FirebaseUserService();
 
   final MedicineService _medicineService = MedicineService();
-final Rx<User?> currentUser = Rx<User?>(null);
-final RxInt currentIndex = 0.obs;
-final RxList<Medicine> cart = <Medicine>[].obs;
+  final CartService _cartService = CartService(); // Cart service instance
 
-// FIX: Firestore theke real-time e medicine list load hobe (static list na)
-final RxList<Medicine> medicines = <Medicine>[].obs;
-StreamSubscription<List<Medicine>>? _medicinesSubscription;
+  final Rx<User?> currentUser = Rx<User?>(null);
+  final RxInt currentIndex = 0.obs;
+  final RxList<Medicine> cart = <Medicine>[].obs;
+
+  // Medicine list is loaded live from Firestore (not a static list)
+  final RxList<Medicine> medicines = <Medicine>[].obs;
+  StreamSubscription<List<Medicine>>? _medicinesSubscription;
 
   final RxBool isDarkMode = false.obs;
   void toggleDarkMode() => isDarkMode.value = !isDarkMode.value;
@@ -34,29 +43,32 @@ StreamSubscription<List<Medicine>>? _medicinesSubscription;
   final RxBool isCheckingAuth = true.obs;
 
   @override
-void onInit() {
-  super.onInit();
-  _loadCurrentUser();
-  _listenToMedicines(); // FIX: notun line
-}
+  void onInit() {
+    super.onInit();
+    _loadCurrentUser();
+    _listenToMedicines();
+  }
 
-// FIX: notun method — Firestore medicines collection stream kore
-void _listenToMedicines() {
-  _medicinesSubscription = _medicineService.getAllMedicines().listen((meds) {
-    medicines.value = meds;
-  });
-}
+  // Streams the medicines collection from Firestore
+  void _listenToMedicines() {
+    _medicinesSubscription = _medicineService.getAllMedicines().listen((meds) {
+      medicines.value = meds;
+    });
+  }
 
-@override
-void onClose() {
-  _medicinesSubscription?.cancel();
-  super.onClose();
-}
+  @override
+  void onClose() {
+    _medicinesSubscription?.cancel();
+    super.onClose();
+  }
 
   Future<void> _loadCurrentUser() async {
     try {
       final user = await _firebaseUserService.loadCurrentUser();
-      if (user != null) currentUser.value = user;
+      if (user != null) {
+        currentUser.value = user;
+        await _loadCartForUser(user.uid); // Restore saved cart
+      }
     } catch (_) {
       // not logged in / no internet — stay on login screen
     } finally {
@@ -67,18 +79,30 @@ void onClose() {
   void updateUser(User user) {
     currentUser.value = user;
     currentIndex.value = 0;
+    _loadCartForUser(user.uid); // Restore saved cart after login/register
+  }
+
+  // Restores a saved cart from Firestore into the local RxList
+  Future<void> _loadCartForUser(String uid) async {
+    try {
+      final savedCart = await _cartService.loadCart(uid);
+      cart.value = savedCart;
+    } catch (_) {
+      // no saved cart yet, or offline — cart stays empty, not a hard error
+    }
   }
 
   Future<void> logout() async {
     await _firebaseUserService.signOut();
     currentUser.value = null;
     currentIndex.value = 0;
+    cart.clear(); // Clear local cart — Firestore's saved cart remains, restored on next login
   }
 
   void navigateToTab(int index) => currentIndex.value = index;
 
   // ── Admin check ──────────────────────────────────────────────────────────
-  // এখানে তোমার নিজের email বসাও — এই email দিয়ে login করলে Admin Panel দেখা যাবে
+  // Add your own email here — logging in with this email shows the Admin Panel
   static const List<String> _adminEmails = ['farhana.rahaman37@gmail.com'];
 
   bool get isAdmin =>
@@ -87,35 +111,52 @@ void onClose() {
 
   void addToCart(Medicine medicine) {
     final index = cart.indexWhere((item) => item.name == medicine.name);
+    Medicine updated;
     if (index != -1) {
       final existing = cart[index];
-      final updated = existing.copyWithQuantity(
+      updated = existing.copyWithQuantity(
         existing.quantity + (medicine.quantity > 0 ? medicine.quantity : 1),
       );
       cart[index] = updated;
     } else {
-      cart.add(
-        medicine.copyWithQuantity(
-          medicine.quantity > 0 ? medicine.quantity : 1,
-        ),
+      updated = medicine.copyWithQuantity(
+        medicine.quantity > 0 ? medicine.quantity : 1,
       );
+      cart.add(updated);
     }
+    // Also saved to Firestore, so the cart survives app restarts/logout
+    final uid = currentUser.value?.uid;
+    if (uid != null) _cartService.saveCartItem(uid, updated);
   }
 
   void updateCartQuantity(Medicine medicine, int newQuantity) {
     if (newQuantity < 1) {
-      return; // minimum 1, delete korte hole remove button use korbe
+      return; // minimum 1 — use the remove button to delete
     }
     final index = cart.indexWhere((item) => item.name == medicine.name);
     if (index == -1) return;
-    cart[index] = cart[index].copyWithQuantity(newQuantity);
+    final updated = cart[index].copyWithQuantity(newQuantity);
+    cart[index] = updated;
+    // Also updated in Firestore
+    final uid = currentUser.value?.uid;
+    if (uid != null) _cartService.saveCartItem(uid, updated);
   }
 
   void removeFromCart(Medicine medicine) {
     cart.removeWhere((item) => item.name == medicine.name);
+    // Also removed from Firestore
+    final uid = currentUser.value?.uid;
+    if (uid != null && medicine.id.isNotEmpty) {
+      _cartService.removeCartItem(uid, medicine.id);
+    }
   }
 
-  void clearCart() => cart.clear();
+  void clearCart() {
+    cart.clear();
+    // Also clears the saved cart in Firestore (after order placement)
+    final uid = currentUser.value?.uid;
+    if (uid != null) _cartService.clearCart(uid);
+  }
 
   bool isInCart(Medicine medicine) {
     return cart.any((item) => item.name == medicine.name);
@@ -123,10 +164,10 @@ void onClose() {
 }
 
 // ─── AppShell (Auth Gate) ────────────────────────────────────────────────────
-// App open হলে এখানে প্রথমে check হয়:
-//  - auth check চলাকালীন → Splash
+// On app open, checks happen here in order:
+//  - while auth check is running → Splash
 //  - currentUser == null → Login/Register flow
-//  - currentUser != null && isAdmin → Admin Shell (আলাদা, সিম্পল ড্যাশবোর্ড)
+//  - currentUser != null && isAdmin → Admin Shell (separate, simple dashboard)
 //  - currentUser != null && !isAdmin → Main bottom-nav shell (normal user)
 
 class AppShell extends StatelessWidget {
@@ -152,8 +193,8 @@ class AppShell extends StatelessWidget {
         );
       }
 
-      // FIX: admin হলে সম্পূর্ণ আলাদা, সিম্পল শেল দেখাও
-     if (controller.isAdmin) {
+      // Show a completely separate, simple shell for admins
+      if (controller.isAdmin) {
         return const AdminShell();
       }
 
@@ -176,8 +217,6 @@ class _SplashScreen extends StatelessWidget {
   }
 }
 
-
-
 // ─── Main Shell (bottom-nav UI, shown after login for normal users) ──────────
 
 class _MainShell extends StatelessWidget {
@@ -192,30 +231,36 @@ class _MainShell extends StatelessWidget {
         Widget getPage() {
           switch (controller.currentIndex.value) {
             case 0:
-              return HomePage(
-                medicines: controller.medicines,
-                cart: controller.cart,
-                onAddToCart: controller.addToCart,
-                isInCart: controller.isInCart,
-                userName: controller.currentUser.value?.name,
-                onProfileTap: () => controller.navigateToTab(3),
+              // FIX: HomePage is now wrapped in Obx() so it explicitly reads
+              // controller.cart — this is what makes the "in cart" checkmark
+              // update immediately on tap instead of only after navigating
+              // away and back (or reopening the app).
+              return Obx(
+                () => HomePage(
+                  medicines: controller.medicines,
+                  cart: controller.cart.toList(),
+                  onAddToCart: controller.addToCart,
+                  isInCart: controller.isInCart,
+                  userName: controller.currentUser.value?.name,
+                  currentUserId: controller.currentUser.value?.uid,
+                  onProfileTap: () => controller.navigateToTab(3),
+                ),
               );
             case 1:
-              // FIX: CartPage আগে plain object হিসেবে cart পেত, তাই cart
-              // add/remove/quantity update হলেও এই page rebuild হতো না।
-              // এখানে Obx() + .toList() ব্যবহার করে explicitly cart read করা
-              // হচ্ছে, যাতে GetX বুঝতে পারে এই widget টা cart এর উপর নির্ভরশীল
-              // এবং cart পরিবর্তন হলেই এটা rebuild হয়।
+              // CartPage previously received cart as a plain object, so it
+              // wouldn't rebuild on add/remove/quantity updates. Using Obx()
+              // + .toList() here makes GetX track this widget's dependency
+              // on cart explicitly, so it rebuilds whenever cart changes.
               return Obx(
                 () => CartPage(
                   cartItems: controller.cart.toList(),
                   onRemove: controller.removeFromCart,
                   onBrowseMedicines: () => Get.to(
-                  () => MedicineListDemoPage(
-                  medicines: controller.medicines,
-                  onAddToCart: controller.addToCart,
-                  isInCart: controller.isInCart,
-                  ),
+                    () => MedicineListDemoPage(
+                      medicines: controller.medicines,
+                      onAddToCart: controller.addToCart,
+                      isInCart: controller.isInCart,
+                    ),
                   ),
                   currentUser: controller.currentUser.value,
                   onOrderPlaced: controller.clearCart,
@@ -233,57 +278,69 @@ class _MainShell extends StatelessWidget {
                 onLogout: controller.logout,
               );
             default:
-              return HomePage(
-                medicines: controller.medicines,
-                cart: controller.cart,
-                onAddToCart: controller.addToCart,
-                isInCart: controller.isInCart,
-                userName: controller.currentUser.value?.name,
-                onProfileTap: () => controller.navigateToTab(3),
+              return Obx(
+                () => HomePage(
+                  medicines: controller.medicines,
+                  cart: controller.cart.toList(),
+                  onAddToCart: controller.addToCart,
+                  isInCart: controller.isInCart,
+                  userName: controller.currentUser.value?.name,
+                  currentUserId: controller.currentUser.value?.uid,
+                  onProfileTap: () => controller.navigateToTab(3),
+                ),
               );
           }
         }
 
-        return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          drawer: _AppDrawer(controller: controller),
-          body: getPage(),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: controller.currentIndex.value,
-            onTap: controller.navigateToTab,
-            type: BottomNavigationBarType.fixed,
-            selectedItemColor: const Color(0xFF1A56DB),
-            unselectedItemColor: Colors.grey,
-            selectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 11,
+        return PopScope(
+          // Back gesture/button first returns to the Home tab;
+          // only exits the app once already on Home (index 0).
+          canPop: controller.currentIndex.value == 0,
+          onPopInvoked: (didPop) {
+            if (didPop) return;
+            controller.navigateToTab(0);
+          },
+          child: Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            drawer: _AppDrawer(controller: controller),
+            body: getPage(),
+            bottomNavigationBar: BottomNavigationBar(
+              currentIndex: controller.currentIndex.value,
+              onTap: controller.navigateToTab,
+              type: BottomNavigationBarType.fixed,
+              selectedItemColor: AppColors.logoGradientStart,
+              unselectedItemColor: Colors.grey,
+              selectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 11,
+              ),
+              unselectedLabelStyle: const TextStyle(
+                fontWeight: FontWeight.w400,
+                fontSize: 11,
+              ),
+              items: const [
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.home_outlined),
+                  activeIcon: Icon(Icons.home_rounded),
+                  label: 'Home',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.shopping_cart_outlined),
+                  activeIcon: Icon(Icons.shopping_cart_rounded),
+                  label: 'Cart',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.alarm_outlined),
+                  activeIcon: Icon(Icons.alarm_rounded),
+                  label: 'Reminder',
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(Icons.person_outline_rounded),
+                  activeIcon: Icon(Icons.person_rounded),
+                  label: 'Profile',
+                ),
+              ],
             ),
-            unselectedLabelStyle: const TextStyle(
-              fontWeight: FontWeight.w400,
-              fontSize: 11,
-            ),
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.home_outlined),
-                activeIcon: Icon(Icons.home_rounded),
-                label: 'Home',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.shopping_cart_outlined),
-                activeIcon: Icon(Icons.shopping_cart_rounded),
-                label: 'Cart',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.alarm_outlined),
-                activeIcon: Icon(Icons.alarm_rounded),
-                label: 'Reminder',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline_rounded),
-                activeIcon: Icon(Icons.person_rounded),
-                label: 'Profile',
-              ),
-            ],
           ),
         );
       }),
@@ -292,9 +349,6 @@ class _MainShell extends StatelessWidget {
 }
 
 // ─── Redesigned App Drawer ──────────────────────────────────────────────────────
-// FIX: এই drawer এখন শুধু normal user shell (_MainShell) এর জন্য —
-// admin আলাদা _AdminShell এ থাকে বলে drawer-এর admin item টা আর দরকার নেই,
-// তাই সরিয়ে ফেলা হলো।
 
 class _AppDrawer extends StatelessWidget {
   final AppController controller;
@@ -326,7 +380,10 @@ class _AppDrawer extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF1A56DB), Color(0xFF3B7AF7)],
+                    colors: [
+                      AppColors.logoGradientStart,
+                      AppColors.logoGradientEnd,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -480,7 +537,7 @@ class _AppDrawer extends StatelessWidget {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
-                                'Order history দেখার জন্য login করো।',
+                                'Please log in to view order history.',
                               ),
                             ),
                           );
@@ -524,7 +581,7 @@ class _AppDrawer extends StatelessWidget {
                             : Icons.light_mode_rounded,
                         iconColor: controller.isDarkMode.value
                             ? const Color(0xFFFFC107)
-                            : const Color(0xFF1A56DB),
+                            : AppColors.logoGradientStart,
                         label: 'Dark Mode',
                         value: controller.isDarkMode.value,
                         onChanged: (_) => controller.toggleDarkMode(),
@@ -648,7 +705,9 @@ class _DrawerItem extends StatelessWidget {
     this.labelColor,
   });
 
-  static const Color _primary = Color(0xFF1A56DB);
+  // Default drawer item accent color matches the app logo gradient's
+  // first color (blue)
+  static const Color _primary = AppColors.logoGradientStart;
 
   @override
   Widget build(BuildContext context) {
@@ -769,7 +828,7 @@ class _DrawerToggle extends StatelessWidget {
             child: Switch(
               value: value,
               onChanged: onChanged,
-              activeThumbColor: const Color(0xFF1A56DB),
+              activeThumbColor: AppColors.logoGradientStart,
             ),
           ),
         ],

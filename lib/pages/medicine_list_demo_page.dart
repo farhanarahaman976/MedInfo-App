@@ -2953,88 +2953,174 @@ class MedicineListDemoPage extends StatelessWidget {
   )
 ];
 
+  static const Color _logoGradientStart = Color(0xFF3B82C4);
+  static const Color _logoGradientEnd = Color(0xFF0F6E56);
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Medicine List'), elevation: 0),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: medicines.length,
-        itemBuilder: (context, index) {
-          final medicine = medicines[index];
-          final displayPrice = medicine.price > 0
-              ? medicine.price
-              : medicine.unitPrice;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-              leading: Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F1FF),
-                  borderRadius: BorderRadius.circular(14),
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF14161D) : const Color(0xFFF7F9FC),
+      appBar: AppBar(
+        title: ShaderMask(
+          shaderCallback: (bounds) => const LinearGradient(
+            colors: [_logoGradientStart, _logoGradientEnd],
+          ).createShader(bounds),
+          child: const Text(
+            'Medicine List',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+        ),
+        backgroundColor: isDark ? const Color(0xFF14161D) : Colors.white,
+        elevation: 0,
+      ),
+      body: Scrollbar(
+        thumbVisibility: true,
+        trackVisibility: true,
+        radius: const Radius.circular(10),
+        thickness: 6,
+        interactive: true,
+        child: ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 16, 20, 16),
+          physics: const BouncingScrollPhysics(),
+          itemCount: medicines.length,
+          itemBuilder: (context, index) {
+            final medicine = medicines[index];
+            final displayPrice = medicine.price > 0
+                ? medicine.price
+                : medicine.unitPrice;
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1E26) : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : Colors.grey.withValues(alpha: 0.1),
+                  width: 0.8,
                 ),
-                child: const Icon(
-                  Icons.medical_services,
-                  color: Color(0xFF4285F4),
-                  size: 28,
-                ),
-              ),
-              title: Text(
-                medicine.name,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(medicine.company),
-                  const SizedBox(height: 4),
-                  Text(
-                    medicine.category,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '৳${displayPrice.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF16A34A),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(18),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(18),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MedicineDetailsPage(
+                        medicine: medicine,
+                        onAddToCart: onAddToCart,
+                        isInCart: isInCart,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Icon(Icons.arrow_forward_ios, size: 16),
-                ],
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [_logoGradientStart, _logoGradientEnd],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          child: const Icon(
+                            Icons.medication_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                medicine.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.3,
+                                  color: isDark ? Colors.white : const Color(0xFF0F1117),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                medicine.company,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: isDark ? Colors.grey[500] : Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _logoGradientStart.withValues(alpha: isDark ? 0.18 : 0.09),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  medicine.category,
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _logoGradientEnd,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '৳${displayPrice.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: isDark ? Colors.white : const Color(0xFF0F1117),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 14,
+                              color: isDark ? Colors.grey[500] : Colors.grey[400],
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MedicineDetailsPage(
-                      medicine: medicine,
-                      onAddToCart: onAddToCart,
-                      isInCart: isInCart,
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

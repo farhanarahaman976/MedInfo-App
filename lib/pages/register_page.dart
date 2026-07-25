@@ -681,7 +681,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                       Expanded(
                                         child: _buildField(
                                           controller: _heightController,
-                                          label: 'Height (cm)',
+                                          label: 'Height (feet)',
                                           icon: Icons.height_rounded,
                                           keyboardType:
                                               const TextInputType.numberWithOptions(

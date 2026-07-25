@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/medicine.dart';
 import '../models/user.dart';
+import 'checkout_page.dart';
 
 /// Cart page displaying order items
 class CartPage extends StatelessWidget {
@@ -28,6 +29,16 @@ class CartPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // ── Theme-aware colors ──
+    final cardBg = isDark ? const Color(0xFF1C1E26) : Colors.white;
+    final emptyIconBg = isDark ? const Color(0xFF262836) : Colors.grey[100]!;
+    final emptyIconColor = isDark ? Colors.grey[500]! : Colors.grey[400]!;
+    final medicineNameColor =
+        isDark ? Colors.white : const Color(0xFF0F172A);
+    final dividerColor = isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE2E8F0);
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -69,13 +80,13 @@ class CartPage extends StatelessWidget {
                         width: 120,
                         height: 120,
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
+                          color: emptyIconBg,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.shopping_cart_outlined,
                           size: 60,
-                          color: Colors.grey[400],
+                          color: emptyIconColor,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -142,10 +153,10 @@ class CartPage extends StatelessWidget {
                                   children: [
                                     Text(
                                       medicine.name,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
-                                        color: Color(0xFF0F172A),
+                                        color: medicineNameColor,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -223,7 +234,7 @@ class CartPage extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-                color: Colors.white,
+                color: cardBg,
                 child: Padding(
                   padding: const EdgeInsets.all(22.0),
                   child: Column(
@@ -245,7 +256,7 @@ class CartPage extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      const Divider(color: Color(0xFFE2E8F0)),
+                      Divider(color: dividerColor),
                       const SizedBox(height: 12),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -282,15 +293,28 @@ class CartPage extends StatelessWidget {
                             ),
                           ),
                           onPressed: () {
-                            onOrderPlaced?.call();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text(
-                                  'Order placed successfully! 🎉',
-                                  style: TextStyle(fontSize: 16),
+                            // FIX: age ei button shudhu cart clear kore fake
+                            // "success" dekhato — kono order Firestore-e create
+                            // hoto na. Ekhon eta CheckoutPage-e navigate kore,
+                            // jekhane address/phone/delivery charge nie
+                            // real order create hobe.
+                            if (currentUser == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Log in first to place an order.',
+                                  ),
                                 ),
-                                backgroundColor: Colors.green,
-                                duration: const Duration(seconds: 2),
+                              );
+                              return;
+                            }
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => CheckoutPage(
+                                  cartItems: cartItems,
+                                  user: currentUser,
+                                  onOrderPlaced: onOrderPlaced ?? () {},
+                                ),
                               ),
                             );
                           },

@@ -19,11 +19,13 @@ class AdminMedicinesPage extends StatefulWidget {
 class _AdminMedicinesPageState extends State<AdminMedicinesPage> {
   final MedicineService _service = MedicineService();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _query = '';
 
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -134,24 +136,36 @@ class _AdminMedicinesPageState extends State<AdminMedicinesPage> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 90),
-                  itemCount: medicines.length,
-                  itemBuilder: (context, index) {
-                    final medicine = medicines[index];
-                    return _MedicineTile(
-                      medicine: medicine,
-                      isDark: isDark,
-                      onEdit: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => MedicineFormPage(medicine: medicine),
-                          ),
-                        );
-                      },
-                      onDelete: () => _confirmDelete(medicine),
-                    );
-                  },
+                return Scrollbar(
+                  controller: _scrollController,
+                  thumbVisibility: true,
+                  interactive: true,
+                  radius: const Radius.circular(8),
+                  child: ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(16, 4, 12, 90),
+                    itemCount: medicines.length,
+                    itemBuilder: (context, index) {
+                      final medicine = medicines[index];
+                      return _MedicineTile(
+                        // FIX: id-key na dile stock edit korar shomoy list rebuild
+                        // hoile TextField-er local state onno item-er shathe mix
+                        // hoye jete pare
+                        key: ValueKey(medicine.id),
+                        medicine: medicine,
+                        isDark: isDark,
+                        service: _service,
+                        onEdit: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => MedicineFormPage(medicine: medicine),
+                            ),
+                          );
+                        },
+                        onDelete: () => _confirmDelete(medicine),
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -164,25 +178,102 @@ class _AdminMedicinesPageState extends State<AdminMedicinesPage> {
 
 // ─── Medicine Tile ────────────────────────────────────────────────────────
 
-class _MedicineTile extends StatelessWidget {
+class _MedicineTile extends StatefulWidget {
   final Medicine medicine;
   final bool isDark;
+  final MedicineService service;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _MedicineTile({
+    super.key,
     required this.medicine,
     required this.isDark,
+    required this.service,
     required this.onEdit,
     required this.onDelete,
   });
 
   @override
+  State<_MedicineTile> createState() => _MedicineTileState();
+}
+
+class _MedicineTileState extends State<_MedicineTile> {
+  late TextEditingController _stockController;
+  bool _isSaving = false;
+
+  int get _currentStock => widget.medicine.stockQuantity ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _stockController = TextEditingController(text: '$_currentStock');
+  }
+
+  @override
+  void didUpdateWidget(covariant _MedicineTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Firestore theke live update ashle (jemon onno kono admin device theke
+    // stock change hole) text field ta shathe shathe sync hobe, jodi user
+    // ekhon nijei type na kore thake
+    final incomingStock = widget.medicine.stockQuantity ?? 0;
+    final displayedStock = int.tryParse(_stockController.text.trim());
+    if (displayedStock != incomingStock && !_stockController.selection.isValid) {
+      _stockController.text = '$incomingStock';
+    }
+  }
+
+  @override
+  void dispose() {
+    _stockController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveStock(int newStock) async {
+    final clamped = newStock < 0 ? 0 : newStock;
+    setState(() => _isSaving = true);
+    try {
+      await widget.service.updateStock(widget.medicine.id, clamped);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Stock update korte parlam na: $e')),
+        );
+        // Firestore stream theke abar purono value fire ashbe, tai text
+        // field ta ekhon-i revert kore dei
+        _stockController.text = '$_currentStock';
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _adjust(int delta) {
+    final current = int.tryParse(_stockController.text.trim()) ?? _currentStock;
+    final updated = current + delta;
+    _stockController.text = '${updated < 0 ? 0 : updated}';
+    _saveStock(updated);
+  }
+
+  void _onSubmittedTyped(String value) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed == null) {
+      _stockController.text = '$_currentStock';
+      return;
+    }
+    _saveStock(parsed);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final stock = medicine.stockQuantity;
-    final hasStock = stock != null;
-    final isLow = hasStock && stock <= 10;
-    final isCritical = hasStock && stock <= 3;
+    final isDark = widget.isDark;
+    final medicine = widget.medicine;
+
+    final stock = int.tryParse(_stockController.text.trim()) ?? _currentStock;
+    final isLow = stock <= 10;
+    final isCritical = stock <= 3;
+
+    final statusColor = isCritical ? Colors.red : (isLow ? Colors.orange : Colors.green);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -233,27 +324,64 @@ class _MedicineTile extends StatelessWidget {
                     color: isDark ? Colors.grey[400] : Colors.grey[600],
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
+                // ── NOTUN: inline stock stepper — form khulte hobe na ──
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    color: !hasStock
-                        ? Colors.grey.withValues(alpha: 0.15)
-                        : (isCritical ? Colors.red : (isLow ? Colors.orange : Colors.green))
-                            .withValues(alpha: 0.1),
+                    color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    !hasStock ? 'Stock set kora hoy nai' : 'Stock: $stock',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: !hasStock
-                          ? Colors.grey[600]
-                          : (isCritical
-                              ? Colors.red[700]
-                              : (isLow ? Colors.orange[700] : Colors.green[700])),
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _StepperIconButton(
+                        icon: Icons.remove,
+                        color: statusColor,
+                        onTap: _isSaving ? null : () => _adjust(-1),
+                      ),
+                      SizedBox(
+                        width: 40,
+                        child: TextField(
+                          controller: _stockController,
+                          enabled: !_isSaving,
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isCritical
+                                ? Colors.red[700]
+                                : (isLow ? Colors.orange[700] : Colors.green[700]),
+                          ),
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 4),
+                            border: InputBorder.none,
+                          ),
+                          onSubmitted: _onSubmittedTyped,
+                          onTapOutside: (_) =>
+                              _onSubmittedTyped(_stockController.text),
+                        ),
+                      ),
+                      _StepperIconButton(
+                        icon: Icons.add,
+                        color: statusColor,
+                        onTap: _isSaving ? null : () => _adjust(1),
+                      ),
+                      if (_isSaving) ...[
+                        const SizedBox(width: 4),
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1.5,
+                            color: statusColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -262,14 +390,38 @@ class _MedicineTile extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.edit_outlined, size: 20),
             color: _Brand.start,
-            onPressed: onEdit,
+            onPressed: widget.onEdit,
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, size: 20),
             color: Colors.red[400],
-            onPressed: onDelete,
+            onPressed: widget.onDelete,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StepperIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  const _StepperIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(icon, size: 14, color: color),
       ),
     );
   }

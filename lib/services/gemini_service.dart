@@ -18,26 +18,23 @@ class GeminiService {
   static const String _baseUrl =
       'https://api.groq.com/openai/v1/chat/completions';
 
-  static const String _model = 'llama-3.1-8b-instant';
+  // Bangla quality onek better ei model e (8b instant Bangla-te kom accurate)
+  static const String _model = 'llama-3.3-70b-versatile';
 
   // কতগুলো medicine AI-কে context হিসেবে পাঠানো হবে (token বাঁচানোর জন্য)
   static const int _maxContextMedicines = 15;
 
-  // ── Common Banglish/Bangla symptom keywords -> English "uses" keywords map
-  // এটা দিয়ে Banglish input ("matha betha", "jor") এর সাথে English uses
-  // ("Headache", "Fever") match করানো হয়
+  // ── Canonical symptom (English, m.uses এর সাথে match করার জন্য) -> Banglish/Bangla synonyms
+  // FIX: আগে এটা উল্টো ছিল (key=canonical term যেটা user কখনো লেখে না,
+  // value=Banglish term)। এখন key=canonical, value=user যা লেখে সেগুলোর লিস্ট।
   static const Map<String, List<String>> _symptomKeywordMap = {
-    'fever': ['matha betha', 'matha bytha', 'মাথা ব্যথা', 'headache'],
-    'jor': ['fever', 'জ্বর', 'temperature'],
-    'jwor': ['fever', 'জ্বর', 'temperature'],
-    'headache': ['matha betha', 'মাথা ব্যথা', 'matha bytha'],
-    'pet betha': ['stomach pain', 'abdominal pain', 'পেট ব্যথা'],
-    'gastric': ['acidity', 'গ্যাস্ট্রিক', 'বদহজম', 'dyspepsia'],
+    'fever': ['jor', 'jwor', 'জ্বর', 'temperature'],
+    'headache': ['matha betha', 'matha bytha', 'মাথা ব্যথা'],
+    'stomach pain': ['pet betha', 'abdominal pain', 'পেট ব্যথা'],
+    'acidity': ['gastric', 'গ্যাস্ট্রিক', 'বদহজম', 'dyspepsia'],
     'allergy': ['অ্যালার্জি', 'itching', 'চুলকানি'],
     'cough': ['কাশি', 'kashi'],
-    'kashi': ['cough', 'কাশি'],
-    'cold': ['ঠান্ডা', 'thanda', 'common cold'],
-    'thanda': ['cold', 'common cold', 'ঠান্ডা'],
+    'cold': ['ঠান্ডা', 'thanda', 'common cold', 'sardi'],
     'diarrhea': ['পাতলা পায়খানা', 'loose motion'],
     'pain': ['betha', 'bytha', 'ব্যথা'],
   };
@@ -48,10 +45,15 @@ class GeminiService {
     final input = userInput.toLowerCase();
 
     // input থেকে extra keywords বের করা (mapping table দিয়ে)
+    // FIX: এখন canonical term ও তার সব synonym — দুটোই চেক করা হচ্ছে,
+    // এবং match পেলে canonical term (English) টাই extraKeywords এ যোগ হচ্ছে,
+    // যাতে m.uses (যেটা English এ লেখা) এর সাথে মিলে।
     final extraKeywords = <String>[];
-    _symptomKeywordMap.forEach((key, values) {
-      if (input.contains(key)) {
-        extraKeywords.addAll(values.map((v) => v.toLowerCase()));
+    _symptomKeywordMap.forEach((canonical, synonyms) {
+      final allTerms = [canonical, ...synonyms].map((t) => t.toLowerCase());
+      if (allTerms.any((t) => input.contains(t))) {
+        extraKeywords.add(canonical.toLowerCase());
+        extraKeywords.addAll(synonyms.map((v) => v.toLowerCase()));
       }
     });
 
@@ -137,15 +139,19 @@ User's message: "$userInput"
 Your role:
 1. Act like a helpful, caring health assistant (similar to a knowledgeable friend) — not just a medicine-name generator.
 2. If the user describes a symptom or health issue:
-   - First, give 2-4 sentences of general, safe self-care advice relevant to that symptom (rest, hydration, sleep, warm/cold compress, diet tips, when to see a doctor, etc.).
+   - First, give 2-4 sentences of general, safe self-care advice relevant to that symptom (rest, hydration, sleep, diet tips, when to see a doctor, etc.).
    - THEN, if relevant, suggest 1-3 medicines ONLY from the list above that could help (based on "Uses"/"ব্যবহার"). If nothing in the list fits well, it's fine to suggest none — general advice alone is still useful.
-3. ALWAYS gently remind the user to consult a doctor or pharmacist before taking any medicine, especially for serious, persistent, or worsening symptoms.
-4. If the user's message is just a greeting or general question (not a symptom), respond naturally and warmly, with "suggested_medicines" as an empty array.
-5. Do NOT suggest medicines not present in the list above.
+   - If the medicine list above does not clearly relate to the user's actual symptom, do NOT force-suggest something irrelevant just because it's in the list — prefer suggesting no medicine over a wrong one.
+3. Be careful with Bangla words that describe body sensations, not weather:
+   - "ঠান্ডা লাগছে" / "thanda lagce" (feeling cold / chills) is usually a symptom (often linked to fever/cold) — advise keeping warm and drinking warm fluids, NOT cold water or cold food.
+   - Do not confuse a symptom description with a literal temperature preference.
+4. ALWAYS gently remind the user to consult a doctor or pharmacist before taking any medicine, especially for serious, persistent, or worsening symptoms.
+5. If the user's message is just a greeting or general question (not a symptom), respond naturally and warmly, with "suggested_medicines" as an empty array.
+6. Do NOT suggest medicines not present in the list above.
 
 Language rules (VERY IMPORTANT):
-- Respond primarily in Bangla, optionally mixing in simple English words naturally (Banglish), like a Bangladeshi person texting a friend.
-- Write Bangla with CORRECT spelling and grammar (শুদ্ধ বানান ও বাক্যগঠন). Carefully proofread every Bangla word before finalizing — do not produce misspelled or broken Bangla.
+- Respond primarily in standard Bangla, optionally mixing in simple English words naturally (Banglish), like a Bangladeshi person texting a friend.
+- Use CORRECT, standard Bangla spelling and grammar (শুদ্ধ বানান ও বাক্যগঠন) — no phonetic or made-up spelling. Double-check every Bangla word before finalizing.
 - Keep sentences short, clear, and natural — avoid overly formal or robotic phrasing.
 
 Respond ONLY with valid JSON in this exact format, no markdown, no extra text:

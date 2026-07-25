@@ -17,7 +17,13 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 @pragma('vm:entry-point')
 void localNotificationTapBackground(NotificationResponse response) {
-  debugPrint('Background notification tap: ${response.payload}');
+  // Note: this runs in a separate isolate when the app is fully killed,
+  // so it can't touch Firestore/GetX state directly. It just logs for now;
+  // if you need "Taken"/"Snooze" to work while the app is killed, write
+  // the action to SharedPreferences here and reconcile it next time the
+  // app starts (e.g. in ReminderService.init()).
+  debugPrint(
+      'Background notification tap: action=${response.actionId} payload=${response.payload}');
 }
 
 class NotificationService {
@@ -117,6 +123,16 @@ class NotificationService {
   // ── Tap Handler ─────────────────────────────────────────────────────────────
 
   void _onNotificationTap(NotificationResponse response) {
+    final actionId = response.actionId;
+
+    // If the user tapped an action button (Taken / Snooze / etc.), handle it
+    // here and return early — don't fall through to opening the app.
+    if (actionId != null && actionId.isNotEmpty) {
+      _handleActionTap(actionId, response.payload);
+      return;
+    }
+
+    // Otherwise this is a tap on the notification body itself.
     final payload = response.payload;
     if (payload == null) return;
     try {
@@ -139,6 +155,57 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('Notification tap error: $e');
+    }
+  }
+
+  /// Handles taps on the quick-action buttons (Taken / Snooze / Took it now / Skip)
+  /// without opening the app, since those actions are registered with
+  /// showsUserInterface: false.
+  void _handleActionTap(String actionId, String? payload) {
+    Map data = {};
+    if (payload != null) {
+      try {
+        final decoded = jsonDecode(payload);
+        if (decoded is Map) data = decoded;
+      } catch (e) {
+        debugPrint('Action payload decode error: $e');
+      }
+    }
+
+    final medicineName = data['medicine']?.toString() ?? '';
+    final dosage = data['dosage']?.toString() ?? '';
+    final medicineId = data['medicineId']?.toString() ??
+        (medicineName.isNotEmpty ? medicineName : 'unknown');
+    final originalId = int.tryParse(data['id']?.toString() ?? '') ??
+        DateTime.now().millisecondsSinceEpoch % 100000;
+
+    switch (actionId) {
+      case 'taken':
+      case 'taken_now':
+        // TODO: log this dose as taken (Firestore/SharedPreferences) so
+        // ReminderPage and the missed-dose check both reflect it. For now
+        // just cancel the paired missed-dose check for this reminder.
+        _localNotifications.cancel(originalId + 100);
+        debugPrint('Marked "$medicineName" as taken');
+        break;
+
+      case 'snooze':
+        if (medicineName.isNotEmpty) {
+          snoozeReminder(
+            id: originalId,
+            medicineName: medicineName,
+            dosage: dosage,
+            minutes: 10,
+            medicineId: medicineId,
+          );
+        }
+        debugPrint('Snoozed "$medicineName" for 10 min');
+        break;
+
+      case 'skip':
+        _localNotifications.cancel(originalId + 100);
+        debugPrint('Skipped dose for "$medicineName"');
+        break;
     }
   }
 
@@ -263,8 +330,14 @@ class NotificationService {
             'It\'s time to take $medicineName ($dosage). Don\'t miss your dose!',
           ),
           actions: [
-            const AndroidNotificationAction('taken', '✅ Taken'),
-            const AndroidNotificationAction('snooze', '⏰ Snooze 10 min'),
+            const AndroidNotificationAction(
+              'taken', '✅ Taken',
+              showsUserInterface: false,
+            ),
+            const AndroidNotificationAction(
+              'snooze', '⏰ Snooze 10 min',
+              showsUserInterface: false,
+            ),
           ],
         ),
         iOS: const DarwinNotificationDetails(
@@ -279,6 +352,7 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.time,
       payload: jsonEncode({
         'type': 'dosage',
+        'id': id,
         'medicine': medicineName,
         'dosage': dosage,
         'medicineId': medicineId ?? medicineName,
@@ -309,8 +383,14 @@ class NotificationService {
           importance: Importance.max,
           priority: Priority.high,
           actions: [
-            const AndroidNotificationAction('taken', '✅ Taken'),
-            const AndroidNotificationAction('snooze', '⏰ Snooze 10 min'),
+            const AndroidNotificationAction(
+              'taken', '✅ Taken',
+              showsUserInterface: false,
+            ),
+            const AndroidNotificationAction(
+              'snooze', '⏰ Snooze 10 min',
+              showsUserInterface: false,
+            ),
           ],
         ),
         iOS: const DarwinNotificationDetails(
@@ -325,6 +405,7 @@ class NotificationService {
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
       payload: jsonEncode({
         'type': 'dosage',
+        'id': id,
         'medicine': medicineName,
         'dosage': dosage,
         'medicineId': medicineId ?? medicineName,
@@ -357,8 +438,14 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           actions: [
-            const AndroidNotificationAction('taken_now', '✅ Took it now'),
-            const AndroidNotificationAction('skip', '❌ Skip this dose'),
+            const AndroidNotificationAction(
+              'taken_now', '✅ Took it now',
+              showsUserInterface: false,
+            ),
+            const AndroidNotificationAction(
+              'skip', '❌ Skip this dose',
+              showsUserInterface: false,
+            ),
           ],
         ),
         iOS: const DarwinNotificationDetails(
@@ -374,6 +461,7 @@ class NotificationService {
           : DateTimeComponents.dayOfWeekAndTime,
       payload: jsonEncode({
         'type': 'missed',
+        'id': id,
         'medicine': medicineName,
         'medicineId': medicineId ?? medicineName,
       }),
@@ -546,6 +634,16 @@ class NotificationService {
           _dosageChannelId, 'Dosage Reminders',
           importance: Importance.max,
           priority: Priority.high,
+          actions: [
+            const AndroidNotificationAction(
+              'taken', '✅ Taken',
+              showsUserInterface: false,
+            ),
+            const AndroidNotificationAction(
+              'snooze', '⏰ Snooze 10 min',
+              showsUserInterface: false,
+            ),
+          ],
         ),
         iOS: const DarwinNotificationDetails(presentAlert: true),
       ),
@@ -554,6 +652,7 @@ class NotificationService {
           UILocalNotificationDateInterpretation.absoluteTime,
       payload: jsonEncode({
         'type': 'snooze',
+        'id': id,
         'medicine': medicineName,
         'dosage': dosage,
         'medicineId': medicineId ?? medicineName,

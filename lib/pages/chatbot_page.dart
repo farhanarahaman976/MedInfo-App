@@ -1,3 +1,18 @@
+// chatbot_page.dart
+// CHANGES (this round — brand restyle):
+//   1. App bar → now uses the app's blue-to-teal brand gradient (matching
+//      the logo/FAB) instead of a flat unrelated blue, with a sparkle icon
+//      badge instead of the generic chat-bubble icon.
+//   2. Bot avatar (in message bubbles + typing indicator) → gradient circle
+//      with a soft glow, matching the MedAI FAB on the home page.
+//   3. User message bubble → brand gradient fill instead of flat blue.
+//   4. Suggested medicine card → icon badge, price, and "add to cart"
+//      button all recolored to the brand gradient; card gets a subtle
+//      shadow and rounded corners consistent with home page cards.
+//   5. Send button → gradient circle with glow shadow, matching FAB style.
+//   6. Typing dots → recolored to brand gradient-family color.
+//   7. Input bar → refined border/shadow, focus-friendly fill color.
+
 import 'package:flutter/material.dart';
 
 import '../models/medicine.dart';
@@ -22,7 +37,14 @@ class ChatbotPage extends StatefulWidget {
 }
 
 class _ChatbotPageState extends State<ChatbotPage> {
-  static const Color _primary = Color(0xFF1A56DB);
+  // Brand gradient — matches logo / MedAI FAB / home page accents
+  static const Color _gradientStart = Color(0xFF3B82C4);
+  static const Color _gradientEnd = Color(0xFF0F6E56);
+  static const LinearGradient _brandGradient = LinearGradient(
+    colors: [_gradientStart, _gradientEnd],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
 
   final GeminiService _geminiService = GeminiService();
   final TextEditingController _inputController = TextEditingController();
@@ -91,55 +113,78 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline_rounded,
-                size: 18,
-                color: Colors.white,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(64),
+        child: Container(
+          decoration: const BoxDecoration(gradient: _brandGradient),
+          child: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'MedAI',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                      Text(
+                        'Symptom বলো, medicine জানো',
+                        style: TextStyle(fontSize: 11, color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'MedAI',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                Text(
-                  'Symptom বলো, medicine জানো',
-                  style: TextStyle(fontSize: 11, color: Colors.white70),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(14),
-              itemCount: _messages.length + (_isTyping ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index == _messages.length) {
-                  return _buildTypingIndicator(isDark);
-                }
-                return _buildMessageBubble(_messages[index], isDark);
-              },
+            child: Container(
+              color: isDark ? const Color(0xFF13151C) : const Color(0xFFF7F9FC),
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: const EdgeInsets.all(14),
+                itemCount: _messages.length + (_isTyping ? 1 : 0),
+                itemBuilder: (context, index) {
+                  if (index == _messages.length) {
+                    return _buildTypingIndicator(isDark);
+                  }
+                  return _buildMessageBubble(_messages[index], isDark);
+                },
+              ),
             ),
           ),
           _buildInputBar(isDark),
@@ -174,8 +219,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   vertical: 11,
                 ),
                 decoration: BoxDecoration(
+                  gradient: isUser ? _brandGradient : null,
                   color: isUser
-                      ? _primary
+                      ? null
                       : message.isError
                       ? Colors.red.shade50
                       : (isDark ? const Color(0xFF1C1E26) : Colors.white),
@@ -195,6 +241,21 @@ class _ChatbotPageState extends State<ChatbotPage> {
                                     : Colors.grey.withValues(alpha: 0.12)),
                           width: 0.8,
                         ),
+                  boxShadow: isUser
+                      ? [
+                          BoxShadow(
+                            color: _gradientStart.withValues(alpha: 0.25),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ]
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
                 ),
                 child: Text(
                   message.text,
@@ -231,10 +292,20 @@ class _ChatbotPageState extends State<ChatbotPage> {
     return Container(
       width: 30,
       height: 30,
-      decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        gradient: _brandGradient,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: _gradientStart.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
       child: const Icon(
-        Icons.chat_bubble_outline_rounded,
-        size: 16,
+        Icons.auto_awesome_rounded,
+        size: 15,
         color: Colors.white,
       ),
     );
@@ -245,71 +316,87 @@ class _ChatbotPageState extends State<ChatbotPage> {
   Widget _buildMedicineCard(Medicine medicine, bool isDark) {
     final inCart = widget.isInCart(medicine) as bool;
 
-    return Container(
-      width: 250,
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1C1E26) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.06)
-              : Colors.grey.withValues(alpha: 0.12),
-          width: 0.8,
+    return GestureDetector(
+      // Puro card-e tap korlei details page e jabe
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MedicineDetailsPage(medicine: medicine),
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEEF2FF),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.medication_rounded,
-              color: _primary,
-              size: 20,
-            ),
+      child: Container(
+        width: 250,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1E26) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.grey.withValues(alpha: 0.12),
+            width: 0.8,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  medicine.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? Colors.white : const Color(0xFF0F1117),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '৳${medicine.displayPrice.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _primary,
-                  ),
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
-          ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => MedicineDetailsPage(medicine: medicine),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _gradientStart.withValues(alpha: 0.14),
+                    _gradientEnd.withValues(alpha: 0.14),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.medication_rounded,
+                color: _gradientStart,
+                size: 20,
               ),
             ),
-            child: Container(
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    medicine.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : const Color(0xFF0F1117),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '৳${medicine.displayPrice.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _gradientEnd,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            // Info icon ekhon just visual hint - tap handle kortese pura card
+            Container(
               padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
                 color: isDark
@@ -323,24 +410,27 @@ class _ChatbotPageState extends State<ChatbotPage> {
                 color: isDark ? Colors.white70 : const Color(0xFF0F1117),
               ),
             ),
-          ),
-          const SizedBox(width: 6),
-          GestureDetector(
-            onTap: inCart ? null : () => widget.onAddToCart(medicine),
-            child: Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: inCart ? const Color(0xFFEAF3DE) : _primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                inCart ? Icons.check_rounded : Icons.add_rounded,
-                size: 16,
-                color: inCart ? const Color(0xFF3B6D11) : Colors.white,
+            const SizedBox(width: 6),
+            // Add-to-cart button-er nijer tap handler thakbe, card-er tap-er
+            // sathe conflict na hoy tai eta alada GestureDetector-e wrap kora
+            GestureDetector(
+              onTap: inCart ? null : () => widget.onAddToCart(medicine),
+              child: Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: inCart ? const Color(0xFFEAF3DE) : null,
+                  gradient: inCart ? null : _brandGradient,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  inCart ? Icons.check_rounded : Icons.add_rounded,
+                  size: 16,
+                  color: inCart ? const Color(0xFF3B6D11) : Colors.white,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -365,6 +455,13 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     : Colors.grey.withValues(alpha: 0.12),
                 width: 0.8,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.15 : 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: const SizedBox(width: 24, height: 12, child: _TypingDots()),
           ),
@@ -385,6 +482,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
       ),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1C1E26) : Colors.white,
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.grey.withValues(alpha: 0.1),
+            width: 0.8,
+          ),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -424,6 +529,14 @@ class _ChatbotPageState extends State<ChatbotPage> {
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide.none,
                 ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: const BorderSide(color: _gradientStart, width: 1.4),
+                ),
               ),
             ),
           ),
@@ -433,9 +546,16 @@ class _ChatbotPageState extends State<ChatbotPage> {
             child: Container(
               width: 44,
               height: 44,
-              decoration: const BoxDecoration(
-                color: _primary,
+              decoration: BoxDecoration(
+                gradient: _brandGradient,
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: _gradientStart.withValues(alpha: 0.35),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: _isTyping
                   ? const Padding(
@@ -502,7 +622,7 @@ class _TypingDotsState extends State<_TypingDots>
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF1A56DB),
+                  color: Color(0xFF3B82C4),
                   shape: BoxShape.circle,
                 ),
               ),

@@ -118,7 +118,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                   if (weight != null)
                     _detailRow(Icons.monitor_weight_outlined, 'Weight', '$weight kg', isDark),
                   if (height != null)
-                    _detailRow(Icons.height_rounded, 'Height', '$height cm', isDark),
+                    _detailRow(Icons.height_rounded, 'Height', '$height feet', isDark),
                   const SizedBox(height: 12),
                   Text(
                     'Medical Conditions',
