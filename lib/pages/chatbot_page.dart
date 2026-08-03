@@ -1,23 +1,29 @@
 // chatbot_page.dart
-// CHANGES (this round — brand restyle):
-//   1. App bar → now uses the app's blue-to-teal brand gradient (matching
-//      the logo/FAB) instead of a flat unrelated blue, with a sparkle icon
-//      badge instead of the generic chat-bubble icon.
-//   2. Bot avatar (in message bubbles + typing indicator) → gradient circle
-//      with a soft glow, matching the MedAI FAB on the home page.
-//   3. User message bubble → brand gradient fill instead of flat blue.
-//   4. Suggested medicine card → icon badge, price, and "add to cart"
-//      button all recolored to the brand gradient; card gets a subtle
-//      shadow and rounded corners consistent with home page cards.
-//   5. Send button → gradient circle with glow shadow, matching FAB style.
-//   6. Typing dots → recolored to brand gradient-family color.
-//   7. Input bar → refined border/shadow, focus-friendly fill color.
+// CHANGES (this round — chat sessions / sidebar history):
+//   1. Added a right-side Drawer (endDrawer) listing past chat sessions,
+//      similar to Claude.ai's chat history sidebar, with a "New Chat"
+//      entry at the top and a delete icon per session.
+//   2. Chat sessions are created lazily — only once the user sends their
+//      first message — so the sidebar doesn't fill up with empty entries.
+//   3. Session titles are auto-generated from the first user message
+//      (handled in ChatService.sendMessage).
+//   4. App bar now has a history icon (opens the sidebar) and a trash
+//      icon (clears the currently open chat's messages).
+//
+// Previous round (chat history persistence):
+//   Added ChatService to load and save chat messages to Firestore.
+//
+// Previous round (brand restyle):
+//   Gradient app bar, bot avatar, user bubble, medicine card, send
+//   button, typing dots, and input bar all restyled to brand colors.
 
 import 'package:flutter/material.dart';
 
 import '../models/medicine.dart';
 import '../models/chat_message.dart';
+import '../models/chat_session.dart';
 import '../services/gemini_service.dart';
+import '../services/chat_service.dart';
 import 'medicine_details_page.dart';
 
 class ChatbotPage extends StatefulWidget {
@@ -47,22 +53,118 @@ class _ChatbotPageState extends State<ChatbotPage> {
   );
 
   final GeminiService _geminiService = GeminiService();
+  final ChatService _chatService = ChatService();
   final TextEditingController _inputController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
 
+  // Null until the user actually sends a message in this chat — the
+  // Firestore session doc is only created at that point (see _sendMessage).
+  String? _currentSessionId;
+
   @override
   void initState() {
     super.initState();
-    _messages.add(
-      ChatMessage(
-        text:
-            'হ্যালো! 👋 আমি MedAI - তোমার health assistant।\n\nতোমার symptom বা সমস্যা বলো (যেমন: "মাথা ব্যথা করছে" বা "জ্বর হয়েছে"), আমি সেই অনুযায়ী advice ও medicine suggest করবো।\n\n⚠️ মনে রেখো, এটা ডাক্তারের পরামর্শের বিকল্প নয়।',
-        sender: MessageSender.bot,
+    _startNewChat();
+  }
+
+  // Resets local state to a fresh, unsaved chat (no Firestore write yet).
+  // Does NOT touch navigation — callers opening this from the drawer
+  // close the drawer themselves (see _buildHistoryDrawer's "New Chat" button).
+  void _startNewChat() {
+    setState(() {
+      _currentSessionId = null;
+      _messages
+        ..clear()
+        ..add(_greetingMessage());
+      _isTyping = false;
+    });
+  }
+
+  ChatMessage _greetingMessage() {
+    return ChatMessage(
+      text:
+          'হ্যালো! 👋 আমি MedAI - তোমার health assistant।\n\nতোমার symptom বা সমস্যা বলো (যেমন: "মাথা ব্যথা করছে" বা "জ্বর হয়েছে"), আমি সেই অনুযায়ী advice ও medicine suggest করবো।\n\n⚠️ মনে রেখো, এটা ডাক্তারের পরামর্শের বিকল্প নয়।',
+      sender: MessageSender.bot,
+    );
+  }
+
+  // Opens a previously saved session and loads its messages.
+  // Caller (the drawer's ListTile onTap) closes the drawer itself first.
+  Future<void> _openSession(String sessionId) async {
+    setState(() => _isTyping = false);
+
+    final messages =
+        await _chatService.getMessagesStream(sessionId, widget.medicines).first;
+
+    setState(() {
+      _currentSessionId = sessionId;
+      _messages
+        ..clear()
+        ..addAll(messages.isEmpty ? [_greetingMessage()] : messages);
+    });
+    _scrollToBottom();
+  }
+
+  Future<void> _confirmDeleteSession(ChatSession session) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Will you delete the chat?'),
+        content: Text('"${session.title}" Will be permanently deleted.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
+
+    if (confirmed == true) {
+      await _chatService.deleteSession(session.id);
+      if (_currentSessionId == session.id) {
+        _startNewChat();
+      }
+    }
+  }
+
+  Future<void> _confirmClearCurrentChat() async {
+    if (_currentSessionId == null) {
+      // Nothing saved yet for this chat — just reset locally.
+      _startNewChat();
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Will you clear the chat?'),
+        content: const Text('All messages in this chat will be deleted.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Clear', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _chatService.clearSessionMessages(_currentSessionId!);
+      _startNewChat();
+    }
   }
 
   @override
@@ -88,12 +190,22 @@ class _ChatbotPageState extends State<ChatbotPage> {
     final text = _inputController.text.trim();
     if (text.isEmpty || _isTyping) return;
 
+    // Lazily create the Firestore session on the very first message.
+    _currentSessionId ??= await _chatService.createSession();
+    final sessionId = _currentSessionId!;
+
+    final userMessage = ChatMessage(text: text, sender: MessageSender.user);
+
     setState(() {
-      _messages.add(ChatMessage(text: text, sender: MessageSender.user));
+      _messages.add(userMessage);
       _isTyping = true;
     });
     _inputController.clear();
     _scrollToBottom();
+
+    _chatService.sendMessage(sessionId, userMessage).catchError((e) {
+      debugPrint('Failed to save user message: $e');
+    });
 
     final response = await _geminiService.getSuggestion(
       userInput: text,
@@ -105,6 +217,10 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _isTyping = false;
     });
     _scrollToBottom();
+
+    _chatService.sendMessage(sessionId, response).catchError((e) {
+      debugPrint('Failed to save bot message: $e');
+    });
   }
 
   @override
@@ -112,7 +228,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      endDrawer: _buildHistoryDrawer(isDark),
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: Container(
@@ -145,23 +263,35 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'MedAI',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          letterSpacing: -0.2,
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '🩺 MedAI',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                            letterSpacing: -0.2,
+                          ),
                         ),
-                      ),
-                      Text(
-                        'Symptom বলো, medicine জানো',
-                        style: TextStyle(fontSize: 11, color: Colors.white70),
-                      ),
-                    ],
+                        Text(
+                          'Describe your symptoms. Get medicine information.',
+                          style: TextStyle(fontSize: 11, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Clear chat',
+                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.white),
+                    onPressed: _confirmClearCurrentChat,
+                  ),
+                  IconButton(
+                    tooltip: 'Chat history',
+                    icon: const Icon(Icons.history_rounded, color: Colors.white),
+                    onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
                   ),
                 ],
               ),
@@ -189,6 +319,286 @@ class _ChatbotPageState extends State<ChatbotPage> {
           ),
           _buildInputBar(isDark),
         ],
+      ),
+    );
+  }
+
+  // ── History Sidebar ─────────────────────────────────────────────────────
+
+  // Friendly relative label for a session's last-updated time.
+  String _formatSessionTime(DateTime dt) {
+    final now = DateTime.now();
+    final isToday =
+        dt.year == now.year && dt.month == now.month && dt.day == now.day;
+    final yesterday = now.subtract(const Duration(days: 1));
+    final isYesterday = dt.year == yesterday.year &&
+        dt.month == yesterday.month &&
+        dt.day == yesterday.day;
+
+    final hh = dt.hour.toString().padLeft(2, '0');
+    final mm = dt.minute.toString().padLeft(2, '0');
+
+    if (isToday) return 'Today, $hh:$mm';
+    if (isYesterday) return 'Yesterday, $hh:$mm';
+    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+  }
+
+  Widget _buildHistoryDrawer(bool isDark) {
+    final bgColor = isDark ? const Color(0xFF13151C) : const Color(0xFFF7F9FC);
+
+    return Drawer(
+      backgroundColor: bgColor,
+      width: 300,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Gradient header — matches the app bar's brand look
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
+              decoration: const BoxDecoration(gradient: _brandGradient),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.history_rounded,
+                      size: 17,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text(
+                      'Chat history',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                    onPressed: () => _scaffoldKey.currentState?.closeEndDrawer(),
+                  ),
+                ],
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    _startNewChat();
+                    _scaffoldKey.currentState?.closeEndDrawer();
+                  },
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('New Chat'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark
+                        ? _gradientStart.withValues(alpha: 0.18)
+                        : _gradientStart.withValues(alpha: 0.1),
+                    foregroundColor: _gradientStart,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(
+                        color: _gradientStart.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 6),
+              child: Text(
+                'Recent Chats',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.3,
+                  color: isDark ? Colors.white38 : Colors.grey[500],
+                ),
+              ),
+            ),
+
+            Expanded(
+              child: StreamBuilder<List<ChatSession>>(
+                stream: _chatService.getSessionsStream(),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final sessions = snapshot.data!;
+                  if (sessions.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.chat_bubble_outline_rounded,
+                            size: 40,
+                            color: isDark ? Colors.white24 : Colors.grey[300],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'No chats yet',
+                            style: TextStyle(
+                              color: isDark ? Colors.white54 : Colors.grey[500],
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
+                    itemCount: sessions.length,
+                    itemBuilder: (context, index) {
+                      final session = sessions[index];
+                      final isActive = session.id == _currentSessionId;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          gradient: isActive
+                              ? LinearGradient(
+                                  colors: [
+                                    _gradientStart.withValues(alpha: isDark ? 0.22 : 0.1),
+                                    _gradientEnd.withValues(alpha: isDark ? 0.22 : 0.1),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null,
+                          color: isActive
+                              ? null
+                              : (isDark ? const Color(0xFF1C1E26) : Colors.white),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isActive
+                                ? _gradientStart.withValues(alpha: 0.35)
+                                : (isDark
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : Colors.grey.withValues(alpha: 0.12)),
+                            width: isActive ? 1.2 : 0.8,
+                          ),
+                          boxShadow: isActive
+                              ? []
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.03),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              _scaffoldKey.currentState?.closeEndDrawer();
+                              _openSession(session.id);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 34,
+                                    height: 34,
+                                    decoration: BoxDecoration(
+                                      gradient: isActive ? _brandGradient : null,
+                                      color: isActive
+                                          ? null
+                                          : (isDark
+                                              ? const Color(0xFF262836)
+                                              : const Color(0xFFF2F6FB)),
+                                      borderRadius: BorderRadius.circular(9),
+                                    ),
+                                    child: Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      size: 16,
+                                      color: isActive
+                                          ? Colors.white
+                                          : (isDark ? Colors.white54 : Colors.grey[500]),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          session.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight:
+                                                isActive ? FontWeight.w600 : FontWeight.w500,
+                                            color: isDark
+                                                ? Colors.white
+                                                : const Color(0xFF0F1117),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _formatSessionTime(session.updatedAt),
+                                          style: TextStyle(
+                                            fontSize: 10.5,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.grey[500],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  InkWell(
+                                    borderRadius: BorderRadius.circular(8),
+                                    onTap: () => _confirmDeleteSession(session),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(6),
+                                      child: Icon(
+                                        Icons.delete_outline_rounded,
+                                        size: 17,
+                                        color: isDark ? Colors.white30 : Colors.grey[400],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

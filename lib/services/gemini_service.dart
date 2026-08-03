@@ -25,18 +25,46 @@ class GeminiService {
   static const int _maxContextMedicines = 15;
 
   // ── Canonical symptom (English, m.uses এর সাথে match করার জন্য) -> Banglish/Bangla synonyms
-  // FIX: আগে এটা উল্টো ছিল (key=canonical term যেটা user কখনো লেখে না,
-  // value=Banglish term)। এখন key=canonical, value=user যা লেখে সেগুলোর লিস্ট।
+  // NOTE: canonical term টা তোমার Medicine.uses field এ যেভাবে লেখা আছে,
+  // ঠিক সেই শব্দের সাথে মিলিয়ে রাখবে (নাহলে match হবে না)।
+  // নতুন symptom add করতে চাইলে এই map এ নতুন entry যোগ করলেই হবে।
   static const Map<String, List<String>> _symptomKeywordMap = {
-    'fever': ['jor', 'jwor', 'জ্বর', 'temperature'],
-    'headache': ['matha betha', 'matha bytha', 'মাথা ব্যথা'],
-    'stomach pain': ['pet betha', 'abdominal pain', 'পেট ব্যথা'],
-    'acidity': ['gastric', 'গ্যাস্ট্রিক', 'বদহজম', 'dyspepsia'],
-    'allergy': ['অ্যালার্জি', 'itching', 'চুলকানি'],
-    'cough': ['কাশি', 'kashi'],
-    'cold': ['ঠান্ডা', 'thanda', 'common cold', 'sardi'],
-    'diarrhea': ['পাতলা পায়খানা', 'loose motion'],
-    'pain': ['betha', 'bytha', 'ব্যথা'],
+    'fever': ['jor', 'jwor', 'জ্বর', 'temperature', 'gaye jor'],
+    'headache': ['matha betha', 'matha bytha', 'মাথা ব্যথা', 'migraine', 'matha dhorse'],
+    'stomach pain': ['pet betha', 'abdominal pain', 'পেট ব্যথা', 'pet e betha'],
+    'acidity': ['gastric', 'গ্যাস্ট্রিক', 'বদহজম', 'dyspepsia', 'buk jala', 'বুক জ্বালা', 'acid'],
+    'allergy': ['অ্যালার্জি', 'itching', 'চুলকানি', 'allergic'],
+    'cough': ['কাশি', 'kashi', 'শুকনো কাশি', 'dry cough'],
+    'cold': ['ঠান্ডা', 'thanda', 'common cold', 'sardi', 'nak diye pani', 'সর্দি'],
+    'diarrhea': ['পাতলা পায়খানা', 'loose motion', 'diarrhoea', 'dast'],
+    'pain': ['betha', 'bytha', 'ব্যথা', 'bytha'],
+    'vomiting': ['বমি', 'bomi', 'vomit', 'gulano', 'গুলানো', 'nausea', 'gaa gulano'],
+    'sore throat': ['gola betha', 'গলা ব্যথা', 'gola jala', 'throat pain', 'গলা জ্বালা'],
+    'body ache': ['gaa betha', 'গা ব্যথা', 'body pain', 'sara gaa betha', 'weakness', 'durbolota', 'দুর্বলতা'],
+    'constipation': ['কোষ্ঠকাঠিন্য', 'kostho kathinno', 'পায়খানা clear hocche na'],
+    'gas': ['গ্যাস', 'gas hocche', 'pet fapa', 'পেট ফাঁপা', 'bloating'],
+    'insomnia': ['ghum hocche na', 'ঘুম হচ্ছে না', 'sleeplessness', 'ঘুম আসছে না'],
+    'dizziness': ['matha ghorche', 'মাথা ঘুরছে', 'dizzy', 'chokkor'],
+    'high blood pressure': ['blood pressure barti', 'উচ্চ রক্তচাপ', 'hypertension', 'pressure high'],
+    'low blood pressure': ['blood pressure kom', 'নিম্ন রক্তচাপ', 'pressure low'],
+    'eye irritation': ['চোখ জ্বালা', 'chokh jala', 'eye pain', 'চোখে চুলকানি'],
+    'ear pain': ['কান ব্যথা', 'kan betha', 'earache'],
+    'toothache': ['দাঁত ব্যথা', 'dat betha', 'tooth pain'],
+    'back pain': ['কোমর ব্যথা', 'komor betha', 'pith betha', 'পিঠে ব্যথা'],
+    'joint pain': ['জয়েন্ট ব্যথা', 'হাড়ের ব্যথা', 'har er betha', 'gathe betha', 'গাঁটে ব্যথা'],
+    'menstrual pain': ['পিরিয়ডের ব্যথা', 'periods er betha', 'period pain'],
+    'burning urination': ['prosraber somoy jala', 'প্রস্রাবে জ্বালা', 'urine infection'],
+    'skin rash': ['চর্মরোগ', 'skin problem', 'র‍্যাশ', 'charme sомосhya'],
+    'wound': ['কাটা ছেঁড়া', 'kata cheda', 'cut', 'ghaa', 'ঘা'],
+    'burn': ['পোড়া', 'pora', 'jole gese', 'জ্বলে গেছে'],
+    'insect bite': ['পোকার কামড়', 'pokar kamor', 'mosquito bite'],
+    'sinus': ['সাইনাস', 'sinus problem', 'nak bondho', 'নাক বন্ধ'],
+    'flu': ['ফ্লু', 'influenza', 'gaye betha shathe jor'],
+    'motion sickness': ['gari te bomi bomi bhab', 'গাড়িতে বমি ভাব'],
+    'food poisoning': ['food poisoning', 'kharap khabar khaoar por pet kharap', 'খাবারে বিষক্রিয়া'],
+    'anxiety': ['দুশ্চিন্তা', 'dushchinta', 'অস্থিরতা', 'osthirota', 'stress'],
+    'weight loss': ['ওজন কমছে', 'ojon komche'],
+    'hair fall': ['চুল পড়া', 'chul pora'],
   };
 
   /// User এর input থেকে relevant medicines খুঁজে বের করে (token বাঁচানোর জন্য)
@@ -45,9 +73,9 @@ class GeminiService {
     final input = userInput.toLowerCase();
 
     // input থেকে extra keywords বের করা (mapping table দিয়ে)
-    // FIX: এখন canonical term ও তার সব synonym — দুটোই চেক করা হচ্ছে,
-    // এবং match পেলে canonical term (English) টাই extraKeywords এ যোগ হচ্ছে,
-    // যাতে m.uses (যেটা English এ লেখা) এর সাথে মিলে।
+    // canonical term ও তার সব synonym — দুটোই চেক করা হচ্ছে, এবং match পেলে
+    // canonical term (English) টাই extraKeywords এ যোগ হচ্ছে, যাতে m.uses
+    // (যেটা English এ লেখা) এর সাথে মিলে।
     final extraKeywords = <String>[];
     _symptomKeywordMap.forEach((canonical, synonyms) {
       final allTerms = [canonical, ...synonyms].map((t) => t.toLowerCase());
