@@ -5,12 +5,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/medicine.dart';
 import '../models/chat_message.dart';
 
-// ─── GeminiService (now powered by Groq) ────────────────────────────────────
-// Symptom লিখলে, app এর medicine list থেকে relevant medicine suggest করে
-// এবং general health advice দেয়।
-//
-// API key .env file থেকে load হয় (GROQ_API_KEY=...)
-// Key পাওয়ার জন্য: https://console.groq.com/keys
 
 class GeminiService {
   static String get _apiKey => dotenv.env['GROQ_API_KEY'] ?? '';
@@ -18,16 +12,12 @@ class GeminiService {
   static const String _baseUrl =
       'https://api.groq.com/openai/v1/chat/completions';
 
-  // Bangla quality onek better ei model e (8b instant Bangla-te kom accurate)
+
   static const String _model = 'llama-3.3-70b-versatile';
 
-  // কতগুলো medicine AI-কে context হিসেবে পাঠানো হবে (token বাঁচানোর জন্য)
+  
   static const int _maxContextMedicines = 15;
 
-  // ── Canonical symptom (English, m.uses এর সাথে match করার জন্য) -> Banglish/Bangla synonyms
-  // NOTE: canonical term টা তোমার Medicine.uses field এ যেভাবে লেখা আছে,
-  // ঠিক সেই শব্দের সাথে মিলিয়ে রাখবে (নাহলে match হবে না)।
-  // নতুন symptom add করতে চাইলে এই map এ নতুন entry যোগ করলেই হবে।
   static const Map<String, List<String>> _symptomKeywordMap = {
     'fever': ['jor', 'jwor', 'জ্বর', 'temperature', 'gaye jor'],
     'headache': ['matha betha', 'matha bytha', 'মাথা ব্যথা', 'migraine', 'matha dhorse'],
@@ -67,15 +57,12 @@ class GeminiService {
     'hair fall': ['চুল পড়া', 'chul pora'],
   };
 
-  /// User এর input থেকে relevant medicines খুঁজে বের করে (token বাঁচানোর জন্য)
+  
   List<Medicine> _filterRelevantMedicines(
       String userInput, List<Medicine> medicines) {
     final input = userInput.toLowerCase();
 
-    // input থেকে extra keywords বের করা (mapping table দিয়ে)
-    // canonical term ও তার সব synonym — দুটোই চেক করা হচ্ছে, এবং match পেলে
-    // canonical term (English) টাই extraKeywords এ যোগ হচ্ছে, যাতে m.uses
-    // (যেটা English এ লেখা) এর সাথে মিলে।
+    
     final extraKeywords = <String>[];
     _symptomKeywordMap.forEach((canonical, synonyms) {
       final allTerms = [canonical, ...synonyms].map((t) => t.toLowerCase());
@@ -90,7 +77,7 @@ class GeminiService {
     for (final m in medicines) {
       int score = 0;
 
-      // English uses check
+      
       for (final use in m.uses) {
         final useLower = use.toLowerCase();
         if (input.contains(useLower) ||
@@ -99,7 +86,7 @@ class GeminiService {
         }
       }
 
-      // Bangla uses check (direct substring, কারণ Bangla word boundary সমস্যা নাই)
+  
       for (final use in m.usesBangla) {
         if (userInput.contains(use) ||
             extraKeywords.any((k) => use.contains(k) || k.contains(use))) {
@@ -122,8 +109,6 @@ class GeminiService {
 
     var result = sorted.take(_maxContextMedicines).map((e) => e.key).toList();
 
-    // কোনো match না পেলে - common/general medicines এর একটা ছোট subset পাঠানো হচ্ছে
-    // যাতে AI অন্তত general suggestion দিতে পারে
     if (result.isEmpty) {
       result = medicines.take(_maxContextMedicines).toList();
     }
@@ -131,7 +116,7 @@ class GeminiService {
     return result;
   }
 
-  /// User এর symptom/query পাঠিয়ে general advice + medicine suggestion পায়
+  
   Future<ChatMessage> getSuggestion({
     required String userInput,
     required List<Medicine> medicines,
@@ -146,7 +131,7 @@ class GeminiService {
     }
 
     try {
-      // পুরো list না পাঠিয়ে, relevant medicines filter করে নেওয়া হচ্ছে
+      
       final relevantMedicines = _filterRelevantMedicines(userInput, medicines);
 
       final medicineContext = relevantMedicines

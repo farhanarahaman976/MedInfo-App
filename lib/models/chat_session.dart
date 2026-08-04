@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Represents one chat conversation ("thread") shown in the sidebar,
-/// similar to a chat history entry in Claude.ai.
+
 class ChatSession {
   final String id;
   final String title;

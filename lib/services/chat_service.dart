@@ -5,18 +5,14 @@ import '../models/chat_message.dart';
 import '../models/chat_session.dart';
 import '../models/medicine.dart';
 
-/// Handles all Firestore operations for MedAI chat sessions and messages.
-/// Each chat "thread" is a session document; messages live in a
-/// sub-collection under that session (like Claude.ai's chat history).
+
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Maximum number of recent messages sent to Groq as context,
-  // to keep token usage under control.
+ 
   static const int contextMessageLimit = 15;
 
-  // Max characters used from the first user message when auto-titling
-  // a new session.
+  
   static const int _titleMaxLength = 40;
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
@@ -33,9 +29,6 @@ class ChatService {
     return _sessionsCollection.doc(sessionId).collection('messages');
   }
 
-  /// Creates a new, empty chat session and returns its id.
-  /// Called lazily — only once the user actually sends their first
-  /// message — so the sidebar doesn't fill up with empty "New Chat" entries.
   Future<String> createSession() async {
     final doc = await _sessionsCollection.add({
       'title': 'New Chat',

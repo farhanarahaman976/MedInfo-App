@@ -21,10 +21,7 @@ class ChatMessage {
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
-  /// Convert to a Firestore-compatible map.
-  /// suggestedMedicines are stored as a list of exact medicine names,
-  /// since only the AI's suggestion (name) needs to persist, not the
-  /// full Medicine object.
+
   Map<String, dynamic> toMap() {
     return {
       'text': text,

@@ -82,7 +82,6 @@ class MedicineReminder {
   }
 
   // ── Firestore ──────────────────────────────────────────────────────────────
-  // id exclude kora hoyeche — Firestore doc ID alada thake
   Map<String, dynamic> toFirestore() => {
         'medicineName': medicineName,
         'dosage': dosage,

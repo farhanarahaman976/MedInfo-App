@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// A general review about the MedInfo BD app/service as a whole —
-/// not tied to any specific medicine.
+
 class AppReview {
   final String id;
   final String userId;

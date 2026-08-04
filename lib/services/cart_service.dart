@@ -1,9 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/medicine.dart';
 
-/// Persists the user's cart in Firestore under users/{uid}/cart/{medicineId},
-/// so the cart survives app restarts and logout/login cycles instead of
-/// living only in in-memory GetX state.
+
 class CartService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 

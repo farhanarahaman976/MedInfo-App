@@ -15,10 +15,10 @@ class Medicine {
   final List<String> sideEffectsBangla;
   final String usageBangla;
   final int quantity;
-  final int? stockQuantity; // real inventory stock (null = ekhono set kora hoy nai)
-  final String? imageUrl; // medicine image URL (null/empty = fallback icon dekhabe)
-  final double averageRating; // NOTUN: review system — 0.0 to 5.0
-  final int reviewCount; // NOTUN: koto ta review joma hoise
+  final int? stockQuantity; 
+  final String? imageUrl; 
+  final double averageRating; 
+  final int reviewCount; 
 
   const Medicine({
     this.id = '',

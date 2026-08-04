@@ -1,22 +1,3 @@
-// chatbot_page.dart
-// CHANGES (this round — chat sessions / sidebar history):
-//   1. Added a right-side Drawer (endDrawer) listing past chat sessions,
-//      similar to Claude.ai's chat history sidebar, with a "New Chat"
-//      entry at the top and a delete icon per session.
-//   2. Chat sessions are created lazily — only once the user sends their
-//      first message — so the sidebar doesn't fill up with empty entries.
-//   3. Session titles are auto-generated from the first user message
-//      (handled in ChatService.sendMessage).
-//   4. App bar now has a history icon (opens the sidebar) and a trash
-//      icon (clears the currently open chat's messages).
-//
-// Previous round (chat history persistence):
-//   Added ChatService to load and save chat messages to Firestore.
-//
-// Previous round (brand restyle):
-//   Gradient app bar, bot avatar, user bubble, medicine card, send
-//   button, typing dots, and input bar all restyled to brand colors.
-
 import 'package:flutter/material.dart';
 
 import '../models/medicine.dart';
@@ -61,8 +42,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
 
-  // Null until the user actually sends a message in this chat — the
-  // Firestore session doc is only created at that point (see _sendMessage).
+
   String? _currentSessionId;
 
   @override
@@ -71,9 +51,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
     _startNewChat();
   }
 
-  // Resets local state to a fresh, unsaved chat (no Firestore write yet).
-  // Does NOT touch navigation — callers opening this from the drawer
-  // close the drawer themselves (see _buildHistoryDrawer's "New Chat" button).
   void _startNewChat() {
     setState(() {
       _currentSessionId = null;
@@ -92,8 +69,6 @@ class _ChatbotPageState extends State<ChatbotPage> {
     );
   }
 
-  // Opens a previously saved session and loads its messages.
-  // Caller (the drawer's ListTile onTap) closes the drawer itself first.
   Future<void> _openSession(String sessionId) async {
     setState(() => _isTyping = false);
 

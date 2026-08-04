@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_review.dart';
 
-/// Reviews live in a top-level app_reviews/{userId} collection —
-/// one review per user (submitting again overwrites their previous one).
 class AppReviewService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 

@@ -4,7 +4,7 @@ class HealthTip {
   final String titleBangla;
   final String body;
   final String bodyBangla;
-  final int order; // display order on home page, lower shows first
+  final int order; 
 
   const HealthTip({
     this.id = '',

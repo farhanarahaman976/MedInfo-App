@@ -1,40 +1,3 @@
-// home_page.dart
-// CHANGES (this round):
-//   1. MedAI floating button restyled — now uses the app's blue-to-teal
-//      brand gradient instead of a flat blue, with a glow shadow, a subtle
-//      white ring, a sparkle icon, and a small chat-bubble badge to signal
-//      it opens the MedAI assistant.
-//   2. Medicine card "add to cart" button — color corrected to exactly
-//      match the brand gradient start color (was a slightly different blue)
-//      and now uses the full brand gradient for a more polished look.
-//   3. Search results list — icon and category label color corrected from
-//      an unrelated blue to the brand gradient color.
-//   4. Home stats row (Medicines / Categories / Brands) — accent colors
-//      switched from unrelated hues to brand-family colors so every
-//      tappable element on the page matches the app's palette.
-//
-// PREVIOUS ROUND CHANGES:
-//   1. App bar logo → "MedInfo" gradient text + bandage/plus icon
-//   2. Floating action button icon → chat bubble (message) icon instead of robot
-//   3. Search bar → now uses the logo's teal-blue gradient instead of translucent white
-//   4. FIX: Notification bell ekhon clickable — NotificationHistoryPage e navigate
-//      kore, ar real-time unread count badge dekhায় (age just static red dot chilo)
-//   5. Medicine card-e star rating + review count dekhano hocche
-//   6. NOTUN (polished): Health Tips section — gradient icon badge, left accent bar
-//   7. NOTUN (polished): Customer Reviews section — rating summary header, gradient
-//      avatar initials, relative time ("2 days ago"), pill-style write button
-//   8. NOTUN: Review summary card resized — stars on top (larger), Write a
-//      Review button full-width below it
-//   9. NOTUN: Health Tips card ekhon tap-able — HealthTipDetailPage e full
-//      details (English + Bangla dutai) dekhায়
-//  10. NOTUN: Recommended section-e featured medicine (Napa Extra, Maxpro,
-//      Fexo, etc.) shobar age dekhায়, total 16 ta medicine display hoy
-//  11. NOTUN (polished): "Order Now" banner — Recommended r Health Tips-er
-//      majhkhane, gradient card + icon badge + subtitle, tap korle full
-//      medicine list e navigate kore
-//  12. NOTUN: Medicine grid-e branded scrollbar (thin, rounded, gradient-tone)
-//      add kora holo — grid nijer moddhe scroll kore, page na
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/medicine.dart';
@@ -56,7 +19,7 @@ class HomePage extends StatefulWidget {
   final Function(Medicine) onAddToCart;
   final bool Function(Medicine) isInCart;
   final String? userName;
-  final String? currentUserId; // FIX: notification history-er jonno lagbe
+  final String? currentUserId; // notification history-er jonno lagbe
   final VoidCallback? onProfileTap;
 
   const HomePage({
@@ -101,7 +64,6 @@ class _HomePageState extends State<HomePage> {
     Color(0xFF993556),
   ];
 
-  // Featured medicines — eigula "Recommended" section-e shobar age dekhabe
   static const List<String> _featuredMedicineNames = [
     'Napa Extra',
     'Deslor 5 mg',

@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Notification type — kon UI e navigate korbe seta বুঝার জন্য
 enum AppNotificationType { order, orderStatus, reminder, general }
 
 extension AppNotificationTypeX on AppNotificationType {
@@ -37,7 +36,7 @@ class AppNotification {
   final String title;
   final String body;
   final AppNotificationType type;
-  final String? referenceId; // orderId ba medicineId, navigate korbe jonno
+  final String? referenceId; 
   final bool isRead;
   final DateTime createdAt;
 
